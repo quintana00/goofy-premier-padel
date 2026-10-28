@@ -29,6 +29,8 @@ create table if not exists jugadores (
   avatar_v int not null default 0,
   creado timestamptz not null default now()
 );
+alter table jugadores add column if not exists fallos int not null default 0;
+alter table jugadores add column if not exists bloqueado_hasta timestamptz;
 create table if not exists temporadas (
   id serial primary key,
   nombre text not null,

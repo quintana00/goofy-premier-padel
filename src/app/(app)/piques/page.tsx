@@ -30,6 +30,11 @@ export default async function Piques({ searchParams }: PageProps<"/piques">) {
     acreedor = [...porPagador.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] ?? null;
   }
   const lista = medallas(m, est);
+  // Duelos que aún no llegan al mínimo para salir como pique: para que la pestaña no esté vacía al principio.
+  const enCamino = est.caras
+    .filter((c) => c.jugados > 0 && c.jugados < 3)
+    .sort((x, y) => y.jugados - x.jugados)
+    .slice(0, 6);
   const nada = rel.length === 0 && !parejas.mejor && !(enLlamas?.racha >= 3) && !(hundido?.racha <= -3) && !moroso;
 
   return (
@@ -42,7 +47,7 @@ export default async function Piques({ searchParams }: PageProps<"/piques">) {
       {nada && (
         <div className="vacio">
           <span className="emoji">🍿</span>
-          Aún no hay salseo suficiente. Los piques salen solos cuando dos jugadores se han enfrentado al menos 3 veces.
+          Aún no hay salseo suficiente. Los piques salen solos cuando dos jugadores se han enfrentado al menos 3 veces.{enCamino.length > 0 && " Abajo tienes los que están al caer."}
         </div>
       )}
 
@@ -96,6 +101,32 @@ export default async function Piques({ searchParams }: PageProps<"/piques">) {
           />
         )}
       </div>
+
+      {enCamino.length > 0 && (
+        <div className="seccion">
+          <h2>🔜 Piques a punto de caer</h2>
+          <p className="suave pequeno">Con 3 duelos se decide quién es el padre de quién.</p>
+          <div className="pila" style={{ gap: 8 }}>
+            {enCamino.map((c) => (
+              <div key={`${c.x}-${c.y}`} className="tarjeta fila entre" style={{ padding: 10 }}>
+                <span className="fila" style={{ gap: 6 }}>
+                  <Avatar j={jugadores.get(c.x)!} tam={30} />
+                  <b>{c.ganaX}</b>
+                  <span className="suave">-</span>
+                  <b>{c.ganaY}</b>
+                  <Avatar j={jugadores.get(c.y)!} tam={30} />
+                  <span className="pequeno">
+                    {nom(c.x)} vs {nom(c.y)}
+                  </span>
+                </span>
+                <span className="chapa naranja">
+                  falta{3 - c.jugados > 1 ? "n" : ""} {3 - c.jugados}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {parejas.todas.length > 0 && (
         <div className="seccion">

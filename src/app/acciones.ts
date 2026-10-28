@@ -27,6 +27,8 @@ function pinCorrecto(pin: string, guardado: string) {
   return calculado.length === esperado.length && timingSafeEqual(calculado, esperado);
 }
 
+const MAX_FALLOS = 5;
+
 const Pin = z.string().regex(/^\d{4}$/, "El PIN son 4 números");
 const Nombre = z.string().trim().min(2, "Nombre demasiado corto").max(24, "Nombre demasiado largo");
 // Foto ya recortada y pasada por el filtro cómic en el navegador (PNG pequeño).
@@ -58,8 +60,22 @@ export async function entrarJugador(_: Estado, fd: FormData): Promise<Estado> {
     const id = z.coerce.number().int().parse(fd.get("id"));
     const pin = Pin.parse(fd.get("pin"));
     const sql = await db();
-    const [j] = await sql`select pin from jugadores where id = ${id}`;
-    if (!j || !pinCorrecto(pin, j.pin)) return { error: "PIN incorrecto. Si no eres tú, no hagas trampas 👀" };
+    const [j] = await sql`select pin, fallos, bloqueado_hasta > now() as bloqueado from jugadores where id = ${id}`;
+    if (!j) return { error: "Ese jugador no existe" };
+    // 5 fallos seguidos bloquean 15 minutos: así nadie prueba los 10.000 PIN para hacerse pasar por otro.
+    if (j.bloqueado) return { error: "Demasiados intentos. Prueba otra vez en 15 minutos 🔒" };
+    if (!pinCorrecto(pin, j.pin)) {
+      const fallos = j.fallos + 1;
+      await sql`update jugadores set fallos = ${fallos >= MAX_FALLOS ? 0 : fallos},
+                bloqueado_hasta = ${fallos >= MAX_FALLOS ? sql`now() + interval '15 minutes'` : null} where id = ${id}`;
+      const quedan = MAX_FALLOS - fallos;
+      return {
+        error: quedan > 0
+          ? `PIN incorrecto. Si no eres tú, no hagas trampas 👀 (te quedan ${quedan} intento${quedan > 1 ? "s" : ""})`
+          : "Demasiados intentos. Prueba otra vez en 15 minutos 🔒",
+      };
+    }
+    if (j.fallos) await sql`update jugadores set fallos = 0 where id = ${id}`;
     (await cookies()).set(COOKIE_SESION, valorSesion(id), cookieSegura);
   } catch (e) {
     return fallo(e);

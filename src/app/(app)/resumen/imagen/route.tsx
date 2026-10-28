@@ -1,3 +1,4 @@
+import { cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import { ImageResponse } from "next/og";
 import { colorDe, iniciales } from "@/lib/avatar";
 import { db } from "@/lib/db";
@@ -66,42 +67,64 @@ export async function GET() {
 
   const fecha = (f: string) => new Date(`${f}T12:00:00`).toLocaleDateString("es-ES", { day: "numeric", month: "short" });
 
-  return new ImageResponse(
-    (
-      <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", background: "#0c1530", color: "#f3f5ff", padding: 56, gap: 26 }}>
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <div style={{ display: "flex", fontSize: 30, fontWeight: 900, color: "#d9ff3d", letterSpacing: 3 }}>🎾 GOOFY PREMIER PADEL</div>
-          <div style={{ display: "flex", fontSize: 64, fontWeight: 900 }}>Resumen semanal</div>
-          <div style={{ display: "flex", fontSize: 28, color: "#a8b3dc" }}>
-            {fecha(r.desde)} – {fecha(r.hasta)} · {r.partidos} partido{r.partidos === 1 ? "" : "s"}
-          </div>
+  const dibujo = (
+    <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", background: "#0c1530", color: "#f3f5ff", padding: 56, gap: 26 }}>
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", fontSize: 30, fontWeight: 900, color: "#d9ff3d", letterSpacing: 3 }}>🎾 GOOFY PREMIER PADEL</div>
+        <div style={{ display: "flex", fontSize: 64, fontWeight: 900 }}>Resumen semanal</div>
+        <div style={{ display: "flex", fontSize: 28, color: "#a8b3dc" }}>
+          {fecha(r.desde)} – {fecha(r.hasta)} · {r.partidos} partido{r.partidos === 1 ? "" : "s"}
         </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, background: "#13306b", borderRadius: 28, padding: 24 }}>
-          <div style={{ display: "flex", fontSize: 30, fontWeight: 900, marginBottom: 6 }}>🏆 Top 5 · {temporada.etiqueta}</div>
-          {top.length === 0 && <div style={{ display: "flex", fontSize: 28, color: "#a8b3dc" }}>Sin partidos todavía</div>}
-          {top.map((f, i) => (
-            <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 18 }}>
-              <div style={{ display: "flex", width: 50, fontSize: 34, fontWeight: 900 }}>{i === 0 ? "👑" : `${i + 1}`}</div>
-              <Cara id={f.id} tam={54} />
-              <div style={{ display: "flex", flex: 1, fontSize: 34, fontWeight: 800 }}>{nom(f.id)}</div>
-              <div style={{ display: "flex", fontSize: 36, fontWeight: 900, color: "#d9ff3d" }}>{Math.round(f.elo)}</div>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {datos.slice(0, 3)}
-        </div>
-
-        {r.paliza && (
-          <div style={{ display: "flex", fontSize: 28, color: "#a8b3dc" }}>
-            🔨 Paliza de la semana: {r.paliza.partido.a.map(nom).join(" y ")} vs{" "}
-            {r.paliza.partido.b ? r.paliza.partido.b.map(nom).join(" y ") : r.paliza.partido.bExterna} ({textoSets(r.paliza.partido.sets)})
-          </div>
-        )}
       </div>
-    ),
-    { width: 1080, height: 1350, headers: { "Cache-Control": "private, no-store" } },
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, background: "#13306b", borderRadius: 28, padding: 24 }}>
+        <div style={{ display: "flex", fontSize: 30, fontWeight: 900, marginBottom: 6 }}>🏆 Top 5 · {temporada.etiqueta}</div>
+        {top.length === 0 && <div style={{ display: "flex", fontSize: 28, color: "#a8b3dc" }}>Sin partidos todavía</div>}
+        {top.map((f, i) => (
+          <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 18 }}>
+            <div style={{ display: "flex", width: 50, fontSize: 34, fontWeight: 900 }}>{i === 0 ? "👑" : `${i + 1}`}</div>
+            <Cara id={f.id} tam={54} />
+            <div style={{ display: "flex", flex: 1, fontSize: 34, fontWeight: 800 }}>{nom(f.id)}</div>
+            <div style={{ display: "flex", fontSize: 36, fontWeight: 900, color: "#d9ff3d" }}>{Math.round(f.elo)}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {datos.slice(0, 3)}
+      </div>
+
+      {r.paliza && (
+        <div style={{ display: "flex", fontSize: 28, color: "#a8b3dc" }}>
+          🔨 Paliza de la semana: {r.paliza.partido.a.map(nom).join(" y ")} vs{" "}
+          {r.paliza.partido.b ? r.paliza.partido.b.map(nom).join(" y ") : r.paliza.partido.bExterna} ({textoSets(r.paliza.partido.sets)})
+        </div>
+      )}
+    </div>
   );
+
+  // Los emojis se descargan de internet al dibujar; si fallan, mejor una imagen sin emojis que ninguna.
+  for (const version of [dibujo, sinEmojis(dibujo)]) {
+    try {
+      const png = await new ImageResponse(version as ReactElement, { width: 1080, height: 1350 }).arrayBuffer();
+      return new Response(png, { headers: { "Content-Type": "image/png", "Cache-Control": "private, no-store" } });
+    } catch (e) {
+      console.error("Resumen semanal:", e);
+    }
+  }
+  return new Response("No se pudo generar la imagen", { status: 500 });
+}
+
+const EMOJI = /[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu;
+
+function sinEmojis(n: ReactNode): ReactNode {
+  if (typeof n === "string") return n.replace(EMOJI, "").trim();
+  if (Array.isArray(n)) return n.map(sinEmojis);
+  if (!isValidElement(n)) return n;
+  const props = n.props as Record<string, unknown>;
+  const nuevas: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "children" || typeof v === "string") nuevas[k] = sinEmojis(v as ReactNode);
+  }
+  return cloneElement(n, nuevas);
 }
