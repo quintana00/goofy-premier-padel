@@ -30,6 +30,8 @@ body {
 
 body {
   min-height: 100dvh;
+  /* Ninguna animación (sellos, confeti, VS) puede ensanchar la página en el móvil. */
+  overflow-x: clip;
   background:
     radial-gradient(1200px 500px at 50% -200px, #2448a8 0%, transparent 60%),
     var(--fondo);
@@ -750,3 +752,147 @@ details > summary::-webkit-details-marker {
 .e-panuelo { animation: e-menear 0.4s ease-in-out infinite alternate; transform-origin: left bottom; }
 .e-charco { animation: e-charco 3s ease-in-out infinite alternate; transform-origin: center bottom; }
 @keyframes e-charco { from { transform: scaleY(0.3); } to { transform: scaleY(1); } }
+
+/* ---------- Escenas del pique ---------- */
+.e-vapor { animation: e-vapor 1.8s ease-out infinite; }
+@keyframes e-vapor { 0% { transform: translate(0, 6px) scale(0.4); opacity: 0; } 30% { opacity: 0.9; } 100% { transform: translate(8px, -26px) scale(1.4); opacity: 0; } }
+.e-olas { animation: e-avanzar 1.6s linear infinite; }
+.e-nado { animation: e-bote 0.6s ease-in-out infinite alternate; }
+.e-brazo1 { animation: e-brazada 1.2s linear infinite; }
+.e-brazo2 { animation: e-brazada 1.2s linear infinite 0.6s; }
+@keyframes e-brazada { to { transform: rotate(360deg); } }
+.e-salpica { animation: e-sudor 0.9s ease-out infinite; }
+.e-abanico { animation: e-abanico 1.6s ease-in-out infinite alternate; }
+@keyframes e-abanico { from { transform: scale(0.85); } to { transform: scale(1.05); } }
+.e-elevar { animation: e-elevar 2s ease-in-out infinite alternate; }
+@keyframes e-elevar { from { transform: translateY(4px); } to { transform: translateY(-16px); } }
+.e-globo { animation: e-globo 2s ease-in-out infinite alternate; }
+@keyframes e-globo { from { transform: scale(0.8) rotate(-4deg); } to { transform: scale(1.1) rotate(4deg); } }
+.e-onda { animation: e-onda 0.9s ease-out infinite; }
+@keyframes e-onda { from { transform: translateX(0) scale(0.6); opacity: 1; } to { transform: translateX(46px) scale(1.4); opacity: 0; } }
+.e-temblor { animation: e-temblor 0.12s linear infinite alternate; }
+@keyframes e-temblor { from { transform: translateX(-2px); } to { transform: translateX(2px); } }
+.e-viento { animation: e-viento 0.6s linear infinite; }
+@keyframes e-viento { from { transform: translateX(-20px); opacity: 0; } 50% { opacity: 1; } to { transform: translateX(20px); opacity: 0; } }
+.e-cuchara { animation: e-cuchara 1.4s ease-in-out infinite alternate; }
+@keyframes e-cuchara { from { transform: rotate(-10deg); } to { transform: rotate(12deg); } }
+
+/* ---------- Acta ---------- */
+.sello {
+  position: absolute;
+  bottom: 8px;
+  right: 12px;
+  display: grid;
+  justify-items: center;
+  padding: 6px 10px;
+  border: 3px solid #ff4d4d;
+  border-radius: 10px;
+  color: #ff4d4d;
+  transform: rotate(-8deg);
+  background: rgba(21, 32, 74, 0.85);
+  pointer-events: none;
+  z-index: 2;
+}
+.sello b { font-size: 16px; letter-spacing: 0.12em; font-weight: 900; }
+.sello span { font-size: 9px; font-weight: 800; }
+.sello.cae { animation: sello-cae 0.55s cubic-bezier(.3,1.6,.5,1) both; }
+@keyframes sello-cae {
+  0% { transform: rotate(-30deg) scale(3); opacity: 0; }
+  70% { transform: rotate(-6deg) scale(0.92); opacity: 1; }
+  100% { transform: rotate(-8deg) scale(1); }
+}
+.con-sello { position: relative; overflow: clip; border-radius: var(--radio); }
+.con-sello > .tarjeta { padding-bottom: 52px; }
+.con-sello.golpe { animation: golpe 0.25s ease-out 0.45s; }
+@keyframes golpe { 50% { transform: translateY(3px) scale(0.99); } }
+.chapa.acta { background: rgba(255, 77, 77, 0.14); color: #ff8a8a; }
+
+/* ---------- Victoria / derrota ---------- */
+.celebracion { position: fixed; inset: 0; pointer-events: none; z-index: 50; overflow: hidden; }
+.celebracion i { position: absolute; top: -20px; width: 9px; height: 14px; border-radius: 2px; animation: confeti-cae 2.6s ease-in forwards; }
+@keyframes confeti-cae { to { transform: translateY(110vh) rotate(720deg); } }
+.pelota-bota {
+  position: absolute; left: -40px; bottom: 30%; width: 34px; height: 34px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f4ff8a, #d9ff3d 60%, #a8c41c);
+  border: 2px solid #000;
+  animation: pelota-x 2.6s linear forwards, pelota-y 0.65s cubic-bezier(.5,0,.5,1) infinite alternate;
+}
+@keyframes pelota-x { to { left: 110%; } }
+@keyframes pelota-y { from { margin-bottom: 0; } to { margin-bottom: 160px; } }
+.nube-derrota {
+  position: fixed; top: 70px; left: 50%; translate: -50% 0; z-index: 55; pointer-events: none;
+  display: grid; justify-items: center; gap: 4px; padding: 14px 22px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  border-radius: 18px; background: #1b2550; border: 1px dashed var(--borde);
+  animation: desvanecer 4.5s ease-in forwards;
+}
+@keyframes desvanecer { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
+.nube { position: relative; width: 110px; height: 60px; }
+.nube span {
+  position: absolute; left: 10px; top: 8px; width: 90px; height: 32px; border-radius: 20px; background: #aab4c8;
+  box-shadow: 18px -14px 0 4px #aab4c8, 46px -8px 0 2px #aab4c8;
+  border: 2px solid #000;
+}
+.nube em { position: absolute; top: 40px; width: 3px; height: 12px; border-radius: 2px; background: #5fb7ff; animation: lluvia 0.6s linear infinite; }
+@keyframes lluvia { from { transform: translateY(0); opacity: 1; } to { transform: translateY(22px); opacity: 0; } }
+
+/* ---------- Ranking que se mueve ---------- */
+.puesto { position: relative; }
+.puesto[data-mov]::after {
+  position: absolute; left: 6px; top: 6px; font-size: 13px; font-weight: 900;
+  animation: flecha 2.4s ease-out 0.4s both;
+}
+.puesto[data-mov="sube"]::after { content: "↑"; color: var(--verde); }
+.puesto[data-mov="baja"]::after { content: "↓"; color: var(--rojo); }
+@keyframes flecha { 0% { opacity: 0; transform: translateY(6px); } 20%, 80% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+
+/* ---------- Ventanas (medallas, borrar) ---------- */
+.medalla-popup {
+  position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px;
+  background: rgba(5, 10, 25, 0.75); backdrop-filter: blur(4px);
+  animation: aparecer 0.25s ease-out;
+}
+@keyframes aparecer { from { opacity: 0; } }
+.medalla-popup-caja {
+  width: min(420px, 100%); display: grid; justify-items: center; gap: 12px; text-align: center;
+  padding: 18px; border-radius: 24px; background: var(--tarjeta); border: 2px solid var(--bola);
+  animation: rebote 0.5s cubic-bezier(.3,1.6,.5,1);
+}
+.medalla-popup-caja .escena { width: 100%; }
+@keyframes rebote { from { transform: scale(0.6); opacity: 0; } }
+.rayos {
+  position: relative; width: 150px; height: 150px; display: grid; place-items: center;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, rgba(217, 255, 61, 0.35) 0 10deg, transparent 10deg 20deg);
+  animation: girar 6s linear infinite;
+}
+.rayos span { font-size: 76px; animation: girar 6s linear infinite reverse, bote 1.2s ease-in-out infinite; }
+@keyframes girar { to { transform: rotate(360deg); } }
+.lagrimita { font-size: 64px; animation: temblar 0.4s ease-in-out infinite alternate; }
+@keyframes temblar { from { transform: rotate(-6deg); } to { transform: rotate(6deg); } }
+
+/* ---------- VS ---------- */
+.vs-escenario { position: relative; height: 230px; overflow: hidden; border-radius: 22px; border: 2px solid #000;
+  background: linear-gradient(90deg, #13306b 0 50%, #5a1340 50% 100%); }
+.vs-lado { position: absolute; top: 24px; display: grid; justify-items: center; gap: 6px; width: 46%; }
+.vs-lado.izq { left: 2%; animation: vs-izq 1.1s cubic-bezier(.2,.9,.3,1) both; }
+.vs-lado.der { right: 2%; animation: vs-der 1.1s cubic-bezier(.2,.9,.3,1) both; }
+@keyframes vs-izq { 0% { transform: translateX(-120%); } 55% { transform: translateX(18%); } 70% { transform: translateX(-4%); } 100% { transform: none; } }
+@keyframes vs-der { 0% { transform: translateX(120%); } 55% { transform: translateX(-18%); } 70% { transform: translateX(4%); } 100% { transform: none; } }
+.vs-letras { position: absolute; left: 50%; top: 50%; translate: -50% -50%; font-size: 64px; font-weight: 900; font-style: italic;
+  color: var(--bola); -webkit-text-stroke: 3px #000; animation: vs-boom 0.5s cubic-bezier(.3,1.8,.5,1) 0.6s both; z-index: 2; }
+@keyframes vs-boom { from { transform: scale(4) rotate(-20deg); opacity: 0; } }
+.vs-escenario.choque { animation: temblor-pantalla 0.3s linear 0.6s; }
+@keyframes temblor-pantalla { 25% { transform: translate(-4px, 2px); } 50% { transform: translate(4px, -2px); } 75% { transform: translate(-2px, -2px); } }
+.termometro { height: 16px; border-radius: 99px; background: #24326a; overflow: hidden; border: 2px solid #000; }
+.termometro > i { display: block; height: 100%; background: linear-gradient(90deg, #5fb7ff, #ffae3d, #ff4d4d); animation: llenar 1.6s ease-out 0.8s both; }
+@keyframes llenar { from { width: 0; } }
+
+/* ---------- Podio ---------- */
+.podio { display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: end; gap: 8px; min-height: 280px; }
+.escalon { display: grid; justify-items: center; gap: 6px; }
+.escalon .bloque { width: 100%; border-radius: 12px 12px 0 0; border: 2px solid #000; display: grid; place-items: center;
+  font-size: 34px; font-weight: 900; color: #10200a; transform-origin: bottom; animation: crecer 0.8s cubic-bezier(.2,.9,.3,1) both; }
+.escalon .cara { animation: caer 0.6s cubic-bezier(.3,1.6,.5,1) both; }
+@keyframes crecer { from { transform: scaleY(0); } }
+@keyframes caer { from { transform: translateY(-180px); opacity: 0; } }
+.lado-juego { margin-left: 2px; font-size: 9px; font-weight: 900; color: var(--suave); }

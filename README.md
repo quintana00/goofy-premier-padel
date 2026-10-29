@@ -23,6 +23,23 @@ Es una web que se instala como app en el móvil (iPhone: Safari → Compartir �
 - **Resumen semanal** en imagen, listo para compartir en WhatsApp.
 - **Fotos**: basta una foto de la cara. Se recorta en el móvil y se le aplica un filtro cómic; luego se pega sobre los muñecos.
 
+## Novedades del pique Fran vs Borja
+
+- **Partidos en acta**: confirmado = sellado. No se borra; intentarlo con uno perdido queda en el historial y da la medalla de Llorón.
+- **Formatos**: 1 set, mejor de 3 o inacabado (suma juegos y sets, pero ni victoria ni derrota). Todo explicado en `/reglas`.
+- **Derecha / revés**: cada partido guarda quién iba a la derecha y el perfil saca los números por lado.
+- **Temporadas** con fecha de fin, archivo en `/temporadas` y ceremonia con podio, confeti y cuchara de madera.
+- **Cara a cara** (`/vs`): entrada con choque, termómetro de pique, racha y cómo les va juntos.
+- **Medallas nuevas**: Megáfono (votado por los del partido), Ego por las nubes, Modo Strava, Siempre me la imponéis y
+  Reconciliación Guadalquivir. Salen con animación la primera vez.
+- **Torneo cruzado (americano)**: cruces automáticos y ranking individual.
+
+## Personajes y escenas
+
+La personalidad de cada uno (apodos, frase, accesorio en las escenas: IQOS, gafas de natación, boli de notario…) está en
+`src/lib/personajes.ts`, sacada del grupo de WhatsApp. Las escenas son SVG con animaciones CSS en
+`src/components/Escena.tsx`: cada cabezón lleva su accesorio automáticamente en todas las escenas.
+
 ## Publicarla (gratis, unos 10 minutos)
 
 1. Entra en [vercel.com](https://vercel.com) con tu cuenta de GitHub → **Add New… → Project** → importa este repositorio.

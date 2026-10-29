@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { Alcance } from "@/components/Alcance";
+import { RankingAnimado } from "@/components/Animaciones";
 import { Avatar } from "@/components/Avatar";
 import { Marca } from "@/components/Marca";
 import { alcance, cargarMundo, yo } from "@/lib/datos";
-import { confirmadores, deudas, euros, estadisticas, type Ficha } from "@/lib/motor";
+import { confirmadores, deudas, diasEntre, euros, estadisticas, type Ficha } from "@/lib/motor";
 
 function Racha({ f }: { f: Ficha }) {
-  if (f.racha >= 3) return <span className="chapa verde">🔥 {f.racha} seguidas</span>;
+  if (f.racha >= 3) return <span className="chapa verde">🦚 {f.racha} seguidas</span>;
   if (f.racha <= -5) return <span className="chapa rojo">🚑 {-f.racha} palizas</span>;
   if (f.racha <= -3) return <span className="chapa rojo">🤕 {-f.racha} derrotas</span>;
   return null;
@@ -22,6 +23,9 @@ export default async function Ranking({ searchParams }: PageProps<"/">) {
   const sinEstrenar = est.ranking.filter((f) => f.jugados === 0);
   const porConfirmar = m.partidos.filter((p) => p.estado === "pendiente" && confirmadores(p).includes(me.id));
   const miDeuda = deudas(m).find((d) => d.id === me.id);
+  const temporada = m.temporadas.find((t) => String(t.id) === a.ver);
+  const terminada = temporada && (temporada.fin ? temporada.fin < m.hoy : Boolean(a.hasta));
+  const fechaCorta = (f: string) => new Date(`${f}T12:00:00`).toLocaleDateString("es-ES", { day: "numeric", month: "short" });
   const ultimoDelta = new Map<number, number>();
   for (const c of est.cambios) ultimoDelta.set(c.jugadorId, c.delta);
 
@@ -59,6 +63,26 @@ export default async function Ranking({ searchParams }: PageProps<"/">) {
 
       <h1 style={{ marginBottom: 12 }}>Ranking</h1>
       <Alcance m={m} ver={a.ver} ruta="/" />
+      {temporada && (
+        <div className="fila entre envolver suave pequeno" style={{ marginTop: -6, marginBottom: 12 }}>
+          <span>
+            📅 Desde el {fechaCorta(temporada.inicio)}
+            {temporada.fin && ` hasta el ${fechaCorta(temporada.fin)}`}
+            {temporada.fin && !terminada && ` · quedan ${diasEntre(m.hoy, temporada.fin)} días`}
+          </span>
+          <span className="fila" style={{ gap: 6 }}>
+            <Link href="/reglas" className="chapa">📏 Reglas</Link>
+            <Link href="/temporadas" className="chapa">🏁 Temporadas</Link>
+            <Link href="/vs" className="chapa">🥊 VS</Link>
+          </span>
+        </div>
+      )}
+      {terminada && (
+        <Link href={`/temporadas/${temporada.id}`} className="tarjeta alerta fila entre" style={{ marginBottom: 12 }}>
+          <b>🏁 ¡{temporada.nombre} ha terminado! Ver la ceremonia</b>
+          <span>→</span>
+        </Link>
+      )}
 
       {conPartidos.length === 0 ? (
         <div className="vacio">
@@ -70,14 +94,14 @@ export default async function Ranking({ searchParams }: PageProps<"/">) {
           </Link>
         </div>
       ) : (
-        <div className="ranking">
+        <RankingAnimado clave={a.ver}>
           {conPartidos.map((f, i) => {
             const j = jugadores.get(f.id)!;
             const clase =
               i === 0 ? "oro" : i === 1 ? "plata" : i === 2 ? "bronce" : i === conPartidos.length - 1 && i > 3 ? "farolillo" : "";
             const delta = ultimoDelta.get(f.id) ?? 0;
             return (
-              <Link key={f.id} href={`/jugador/${f.id}`} className={`puesto ${clase}`}>
+              <Link key={f.id} href={`/jugador/${f.id}`} className={`puesto ${clase}`} data-id={f.id}>
                 <span className="n">{i === 0 ? "👑" : clase === "farolillo" ? "🥄" : i + 1}</span>
                 <Avatar j={j} tam={46} />
                 <span style={{ minWidth: 0 }}>
@@ -101,7 +125,7 @@ export default async function Ranking({ searchParams }: PageProps<"/">) {
               </Link>
             );
           })}
-        </div>
+        </RankingAnimado>
       )}
 
       {sinEstrenar.length > 0 && (
@@ -119,8 +143,8 @@ export default async function Ranking({ searchParams }: PageProps<"/">) {
       )}
 
       <p className="suave pequeno" style={{ marginTop: 24 }}>
-        ℹ️ Ranking ELO: todos empiezan con 1000. Ganar a los buenos da muchos puntos; perder contra los malos quita muchos.
-        Las palizas cuentan un poco más que los partidos ajustados.
+        ℹ️ Ranking ELO: todos empiezan con 1000 cada temporada. Ganar a los buenos da muchos puntos; perder contra los malos
+        quita muchos. Todo lo que cuenta (y lo que no) está en <Link href="/reglas" style={{ textDecoration: "underline" }}>las reglas</Link>.
       </p>
 
       <Link href="/partidos/nuevo" className="boton flotante" aria-label="Apuntar resultado">

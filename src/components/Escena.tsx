@@ -3,12 +3,40 @@
 import type { ReactNode } from "react";
 import type { Jugador } from "@/lib/tipos";
 import { colorDe, iniciales, urlAvatar } from "@/lib/avatar";
+import { personaje, type Accesorio } from "@/lib/personajes";
 
-export type TipoEscena = "biberon" | "perrito" | "beso" | "cobrador" | "ambulancia" | "fuego" | "trofeo" | "lloron";
+export type TipoEscena =
+  | "biberon"
+  | "perrito"
+  | "beso"
+  | "cobrador"
+  | "ambulancia"
+  | "fuego"
+  | "trofeo"
+  | "lloron"
+  | "guadalquivir"
+  | "nadar"
+  | "ego"
+  | "megafono"
+  | "cuchara";
 
 const N = "#111"; // trazo
 
-function Cabeza({ j, cx, cy, r, id }: { j: Jugador | null; cx: number; cy: number; r: number; id: string }) {
+export function Cabeza({
+  j,
+  cx,
+  cy,
+  r,
+  id,
+  sinAccesorio,
+}: {
+  j: Jugador | null;
+  cx: number;
+  cy: number;
+  r: number;
+  id: string;
+  sinAccesorio?: boolean;
+}) {
   if (!j) {
     // Cara genérica (el cobrador del frac cuando no sabemos a quién se le debe).
     return (
@@ -48,8 +76,68 @@ function Cabeza({ j, cx, cy, r, id }: { j: Jugador | null; cx: number; cy: numbe
         </text>
       )}
       <circle cx={cx} cy={cy} r={r} fill="none" stroke={N} strokeWidth={4} />
+      {!sinAccesorio && <Complemento tipo={personaje(j.nombre)?.accesorio} cx={cx} cy={cy} r={r} id={clip} />}
     </g>
   );
+}
+
+// El sello de cada uno, encima de su cabezón.
+function Complemento({ tipo, cx, cy, r, id }: { tipo?: Accesorio; cx: number; cy: number; r: number; id: string }) {
+  if (tipo === "iqos") {
+    // IQOS en la comisura y su nubecita de vapor.
+    const x = cx + r * 0.32;
+    const y = cy + r * 0.5;
+    return (
+      <g>
+        <g transform={`rotate(-18 ${x} ${y})`}>
+          <rect x={x} y={y - r * 0.08} width={r * 0.95} height={r * 0.17} rx={r * 0.08} fill="#f4f4f4" stroke={N} strokeWidth={2.5} />
+          <rect x={x} y={y - r * 0.08} width={r * 0.3} height={r * 0.17} rx={r * 0.06} fill="#c7a26b" stroke={N} strokeWidth={2} />
+        </g>
+        {[0, 1, 2].map((i) => (
+          <circle
+            key={i}
+            className="e-vapor"
+            style={{ animationDelay: `${i * 0.6}s` }}
+            cx={x + r * 0.95}
+            cy={y - r * 0.4}
+            r={r * (0.13 + i * 0.03)}
+            fill="#fff"
+            stroke="#999"
+            strokeWidth={1.5}
+            opacity={0.9}
+          />
+        ))}
+      </g>
+    );
+  }
+  if (tipo === "natacion") {
+    // Gorro naranja Strava y gafas de natación.
+    return (
+      <g>
+        <clipPath id={`gorro-${id}`}>
+          <circle cx={cx} cy={cy} r={r - 2} />
+        </clipPath>
+        <rect x={cx - r} y={cy - r} width={r * 2} height={r * 0.62} fill="#fc4c02" clipPath={`url(#gorro-${id})`} />
+        <path d={`M${cx - r * 0.98} ${cy - r * 0.32} Q${cx} ${cy - r * 0.48} ${cx + r * 0.98} ${cy - r * 0.32}`} fill="none" stroke={N} strokeWidth={r * 0.1} />
+        {[-1, 1].map((k) => (
+          <g key={k}>
+            <ellipse cx={cx + k * r * 0.33} cy={cy - r * 0.38} rx={r * 0.22} ry={r * 0.15} fill="#3dd6ff" stroke={N} strokeWidth={3} />
+            <ellipse cx={cx + k * r * 0.33 - r * 0.07} cy={cy - r * 0.42} rx={r * 0.06} ry={r * 0.035} fill="#fff" />
+          </g>
+        ))}
+      </g>
+    );
+  }
+  if (tipo === "boli") {
+    // Boli de notario detrás de la oreja.
+    return (
+      <g transform={`rotate(35 ${cx + r * 0.9} ${cy - r * 0.35})`}>
+        <rect x={cx + r * 0.6} y={cy - r * 0.42} width={r * 0.75} height={r * 0.14} rx={r * 0.04} fill="#ffd23d" stroke={N} strokeWidth={2.5} />
+        <path d={`M${cx + r * 1.35} ${cy - r * 0.42} l${r * 0.18} ${r * 0.07} l${-r * 0.18} ${r * 0.07} Z`} fill="#333" stroke={N} strokeWidth={2} />
+      </g>
+    );
+  }
+  return null;
 }
 
 // Brazo o pierna con contorno negro.
@@ -390,7 +478,7 @@ function Trofeo({ x, y }: { x: Jugador; y: Jugador }) {
   );
 }
 
-function Lloron({ y }: { y: Jugador }) {
+function Lloron({ y, frase }: { y: Jugador; frase?: string }) {
   return (
     <>
       <rect width={360} height={220} fill="#dbe9ff" />
@@ -410,7 +498,195 @@ function Lloron({ y }: { y: Jugador }) {
           <path className="e-lagrima" style={{ animationDelay: `${i * 0.4 + 0.2}s` }} d="M198 74 q-5 9 0 12 q5 -3 0 -12 Z" fill="#3d8bff" stroke={N} strokeWidth={1.5} />
         </g>
       ))}
-      <Bocadillo x={14} y={14} texto="¡Ha sido amaño! 😭" ancho={150} />
+      <Bocadillo x={14} y={14} texto={frase ?? "¡Ha sido amaño! 😭"} ancho={150} />
+    </>
+  );
+}
+
+// Reconciliación Guadalquivir: uno nadando (y lo sube a Strava), otro en la terraza. Sin terraza = solo natación.
+function Guadalquivir({ nadador, terraza }: { nadador: Jugador; terraza: Jugador | null }) {
+  const k = `${nadador.id}-${terraza?.id ?? 0}`;
+  const ancho = terraza ? 232 : 360;
+  return (
+    <>
+      <rect width={360} height={220} fill="#bfe8ff" />
+      <circle cx={terraza ? 200 : 320} cy={34} r={18} fill="#ffe14d" stroke={N} strokeWidth={3} />
+      {/* Torre del Oro */}
+      <g>
+        <rect x={20} y={58} width={34} height={66} fill="#e8c27a" stroke={N} strokeWidth={3} />
+        <rect x={26} y={34} width={22} height={26} fill="#e8c27a" stroke={N} strokeWidth={3} />
+        <path d="M24 34 L37 16 L50 34 Z" fill="#c9a55a" stroke={N} strokeWidth={3} strokeLinejoin="round" />
+        <rect x={33} y={78} width={8} height={14} rx={4} fill={N} />
+      </g>
+      {/* Río */}
+      <rect x={0} y={118} width={ancho} height={102} fill="#2f8fd8" />
+      <g className="e-olas">
+        {Array.from({ length: 12 }, (_, i) => (
+          <path key={i} d={`M${i * 40 - 40} 124 q10 -8 20 0 t20 0`} fill="none" stroke="#bfe6ff" strokeWidth={3} strokeLinecap="round" />
+        ))}
+      </g>
+      {/* Nadador */}
+      <g className="e-nado">
+        <g className="e-brazo1" style={{ transformOrigin: "128px 150px", transformBox: "view-box" }}>
+          <Extremidad d="M128 150 L160 128" color={PIEL} ancho={10} />
+        </g>
+        <Cabeza j={nadador} cx={104} cy={146} r={28} id={`n${k}`} />
+        <g className="e-brazo2" style={{ transformOrigin: "84px 156px", transformBox: "view-box" }}>
+          <Extremidad d="M84 156 L52 134" color={PIEL} ancho={10} />
+        </g>
+      </g>
+      <rect x={0} y={166} width={ancho} height={54} fill="#2f8fd8" />
+      <g className="e-olas e-retraso">
+        {Array.from({ length: 12 }, (_, i) => (
+          <path key={i} d={`M${i * 40 - 20} 168 q10 -8 20 0 t20 0`} fill="none" stroke="#bfe6ff" strokeWidth={3} strokeLinecap="round" />
+        ))}
+      </g>
+      {[0, 1, 2].map((i) => (
+        <circle key={i} className="e-salpica" style={{ animationDelay: `${i * 0.3}s` }} cx={150 + i * 8} cy={150} r={4} fill="#fff" />
+      ))}
+      {/* Notificación de Strava */}
+      <g className="e-bocadillo">
+        <rect x={70} y={10} width={150} height={44} rx={10} fill="#fff" stroke={N} strokeWidth={3} />
+        <rect x={70} y={10} width={34} height={44} rx={10} fill="#fc4c02" stroke={N} strokeWidth={3} />
+        <text x={87} y={39} textAnchor="middle" fontSize={18}>
+          🏊
+        </text>
+        <text x={112} y={28} fontSize={10} fontWeight={900} fill="#fc4c02">
+          STRAVA
+        </text>
+        <text x={112} y={45} fontSize={11} fontWeight={800} fill={N}>
+          1,2 km · 12 kudos 👍
+        </text>
+      </g>
+      {terraza && (
+        <>
+          {/* Terraza */}
+          <rect x={232} y={118} width={128} height={102} fill="#f0d9b5" />
+          <line x1={232} y1={118} x2={232} y2={220} stroke={N} strokeWidth={3} />
+          <path d="M250 70 Q300 30 352 70 Z" fill="#e8322f" stroke={N} strokeWidth={3} strokeLinejoin="round" />
+          <path d="M276 70 Q300 46 326 70" fill="#fff" stroke={N} strokeWidth={2} />
+          <line x1={300} y1={70} x2={300} y2={196} stroke={N} strokeWidth={4} />
+          <Extremidad d="M280 176 L276 206" color="#2b3a8c" />
+          <Extremidad d="M302 176 L306 206" color="#2b3a8c" />
+          <Torso x={262} y={124} w={56} h={58} color={colorDe(terraza.id)} />
+          <Cabeza j={terraza} cx={290} cy={100} r={28} id={`t${k}`} />
+          <ellipse cx={330} cy={176} rx={26} ry={7} fill="#fff" stroke={N} strokeWidth={3} />
+          <line x1={330} y1={182} x2={330} y2={206} stroke={N} strokeWidth={4} />
+          <rect x={322} y={150} width={14} height={24} rx={3} fill="#ffcf3d" stroke={N} strokeWidth={2.5} />
+          <rect x={322} y={150} width={14} height={6} rx={2} fill="#fff" />
+          <text x={296} y={140} textAnchor="middle" fontSize={9} fontWeight={900} fill={N}>
+            TERRAZA
+          </text>
+        </>
+      )}
+      {terraza && <Corazon x={214} y={90} s={0.7} clase="e-flota" />}
+    </>
+  );
+}
+
+// Ego por las nubes: un globo con el ego que le levanta del suelo y cola de pavo real.
+function Ego({ y }: { y: Jugador }) {
+  return (
+    <>
+      <rect width={360} height={220} fill="#fff3e0" />
+      <Suelo color="#ffd9a8" />
+      <g className="e-abanico" style={{ transformOrigin: "160px 150px", transformBox: "view-box" }}>
+        {[-75, -50, -25, 0, 25, 50, 75].map((a) => (
+          <g key={a} transform={`rotate(${a} 160 150)`}>
+            <ellipse cx={160} cy={78} rx={17} ry={58} fill="#1aa38f" stroke={N} strokeWidth={2.5} />
+            <circle cx={160} cy={42} r={9} fill="#2b5bd7" stroke={N} strokeWidth={2} />
+            <circle cx={160} cy={42} r={4} fill="#ffd23d" />
+          </g>
+        ))}
+      </g>
+      <g className="e-elevar">
+        <path className="e-globo-cuerda" d="M196 128 Q230 100 250 76" fill="none" stroke={N} strokeWidth={2} />
+        <g className="e-globo" style={{ transformOrigin: "258px 50px", transformBox: "view-box" }}>
+          <ellipse cx={258} cy={46} rx={44} ry={40} fill="#ff5fa2" stroke={N} strokeWidth={3.5} />
+          <path d="M252 86 l6 8 l6 -8 Z" fill="#ff5fa2" stroke={N} strokeWidth={2.5} />
+          <ellipse cx={244} cy={32} rx={10} ry={6} fill="#fff" opacity={0.6} />
+          <text x={258} y={55} textAnchor="middle" fontSize={26} fontWeight={900} fill="#fff" stroke={N} strokeWidth={1.5}>
+            EGO
+          </text>
+        </g>
+        <Extremidad d="M150 168 L146 196" color="#2b3a8c" />
+        <Extremidad d="M170 168 L174 196" color="#2b3a8c" />
+        <Torso x={130} y={110} h={62} color={colorDe(y.id)} />
+        <Extremidad d="M182 126 Q192 120 196 128" color={PIEL} />
+        <Extremidad d="M136 126 Q120 140 128 156" color={PIEL} />
+        <Cabeza j={y} cx={160} cy={80} r={36} id={`ego${y.id}`} />
+      </g>
+    </>
+  );
+}
+
+// Megáfono: uno grita a su compañero, que sale despeinado.
+function Megafono({ x, y }: { x: Jugador; y: Jugador }) {
+  const k = `${x.id}-${y.id}`;
+  return (
+    <>
+      <rect width={360} height={220} fill="#e9f7ef" />
+      <Suelo color="#9fd9b6" />
+      <rect x={176} y={120} width={6} height={80} fill="#fff" stroke={N} strokeWidth={2} />
+      <g>
+        <Extremidad d="M88 166 L84 200" color="#2b3a8c" />
+        <Extremidad d="M110 166 L114 200" color="#2b3a8c" />
+        <Torso x={68} y={106} h={64} color={colorDe(x.id)} />
+        <Cabeza j={x} cx={98} cy={74} r={34} id={`gr${k}`} />
+        <Extremidad d="M124 120 Q140 110 140 96" color={PIEL} />
+        <path d="M128 86 L168 66 L168 112 L128 94 Z" fill="#ff4d4d" stroke={N} strokeWidth={3} strokeLinejoin="round" />
+        <rect x={164} y={64} width={8} height={50} rx={3} fill="#fff" stroke={N} strokeWidth={2.5} />
+      </g>
+      {[0, 1, 2].map((i) => (
+        <path
+          key={i}
+          className="e-onda"
+          style={{ animationDelay: `${i * 0.3}s` }}
+          d="M186 60 Q204 90 186 120"
+          fill="none"
+          stroke={N}
+          strokeWidth={4}
+          strokeLinecap="round"
+        />
+      ))}
+      <g className="e-temblor">
+        <g transform="rotate(-10 270 190)">
+          <Extremidad d="M258 166 L254 200" color="#2b3a8c" />
+          <Extremidad d="M280 166 L284 200" color="#2b3a8c" />
+          <Torso x={238} y={106} h={64} color={colorDe(y.id)} />
+          <Extremidad d="M244 122 Q226 104 232 88" color={PIEL} />
+          <Extremidad d="M296 122 Q314 104 308 88" color={PIEL} />
+        </g>
+        {[0, 1, 2].map((i) => (
+          <line key={i} className="e-viento" style={{ animationDelay: `${i * 0.2}s` }} x1={300} y1={50 + i * 18} x2={340} y2={46 + i * 18} stroke="#7aa" strokeWidth={3} strokeLinecap="round" />
+        ))}
+        <Cabeza j={y} cx={262} cy={74} r={34} id={`gd${k}`} />
+      </g>
+      <Bocadillo x={10} y={6} texto="¡¡AL MEDIO!!" ancho={120} />
+    </>
+  );
+}
+
+// Cuchara de madera para el último de la temporada.
+function Cuchara({ y }: { y: Jugador }) {
+  return (
+    <>
+      <rect width={360} height={220} fill="#f3e5d0" />
+      <Suelo color="#d9bf95" />
+      <Extremidad d="M170 166 L166 200" color="#2b3a8c" />
+      <Extremidad d="M190 166 L194 200" color="#2b3a8c" />
+      <Torso x={149} y={104} color={colorDe(y.id)} />
+      <g className="e-cuchara" style={{ transformOrigin: "212px 128px", transformBox: "view-box" }}>
+        <rect x={208} y={30} width={12} height={110} rx={5} fill="#b07a3b" stroke={N} strokeWidth={3} />
+        <ellipse cx={214} cy={30} rx={24} ry={32} fill="#c98b4f" stroke={N} strokeWidth={3.5} />
+        <ellipse cx={214} cy={30} rx={14} ry={20} fill="#b07a3b" />
+      </g>
+      <Extremidad d="M206 122 Q216 128 214 132" color={PIEL} />
+      <Extremidad d="M154 122 Q136 142 146 160" color={PIEL} />
+      <Cabeza j={y} cx={180} cy={72} r={40} id={`cu${y.id}`} />
+      <text x={70} y={60} textAnchor="middle" fontSize={34}>
+        🥄
+      </text>
     </>
   );
 }
@@ -422,8 +698,10 @@ export function Escena({
   titulo,
   texto,
   extra,
+  frase,
 }: {
   tipo: TipoEscena;
+  frase?: string;
   x?: Jugador | null;
   y: Jugador;
   titulo: ReactNode;
@@ -454,7 +732,22 @@ export function Escena({
       dibujo = <Trofeo x={x!} y={y} />;
       break;
     case "lloron":
-      dibujo = <Lloron y={y} />;
+      dibujo = <Lloron y={y} frase={frase} />;
+      break;
+    case "guadalquivir":
+      dibujo = <Guadalquivir nadador={y} terraza={x ?? null} />;
+      break;
+    case "nadar":
+      dibujo = <Guadalquivir nadador={y} terraza={null} />;
+      break;
+    case "ego":
+      dibujo = <Ego y={y} />;
+      break;
+    case "megafono":
+      dibujo = <Megafono x={x!} y={y} />;
+      break;
+    case "cuchara":
+      dibujo = <Cuchara y={y} />;
       break;
   }
   return (

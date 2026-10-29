@@ -95,9 +95,32 @@ create table if not exists gasto_partes (
   pagada timestamptz,
   avisada timestamptz
 );
--- La primera temporada abarca todo lo anterior, para que cuenten los partidos apuntados con fecha pasada.
+alter table partidos add column if not exists formato text not null default 'mejor3';
+alter table partidos add column if not exists a_derecha int references jugadores(id);
+alter table partidos add column if not exists b_derecha int references jugadores(id);
+alter table partidos add column if not exists impuesta_por int references jugadores(id);
+-- Antes no se guardaba el formato: los de un solo set eran partidos a 1 set.
+update partidos set formato = '1set' where formato = 'mejor3' and jsonb_array_length(sets) = 1;
+alter table temporadas add column if not exists fin date;
+alter table torneos add column if not exists americano jsonb;
+create table if not exists eventos (
+  id serial primary key,
+  tipo text not null,
+  jugador_id int not null references jugadores(id),
+  partido_id int references partidos(id) on delete cascade,
+  creado timestamptz not null default now()
+);
+create table if not exists megafonos (
+  partido_id int not null references partidos(id) on delete cascade,
+  votante int not null references jugadores(id),
+  acusado int not null references jugadores(id),
+  primary key (partido_id, votante)
+);
+-- Lo acordado en el grupo: la Temporada 1 oficial cuenta "a partir de esta semana" (lunes 26/10/2026).
+update temporadas set inicio = date '2026-10-26' where inicio = date '2000-01-01';
+-- Primera temporada: desde el lunes de la semana en que se acordó.
 insert into temporadas (nombre, inicio)
-  select 'Temporada 1', date '2000-01-01'
+  select 'Temporada 1', date '2026-10-26'
   where not exists (select 1 from temporadas);
 `;
 

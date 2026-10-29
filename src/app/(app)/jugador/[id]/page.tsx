@@ -5,6 +5,7 @@ import { Escena } from "@/components/Escena";
 import { Grafica } from "@/components/Grafica";
 import { alcance, cargarMundo, yo } from "@/lib/datos";
 import { deudas, estadisticas, euros, medallas, peorPesadilla, relaciones } from "@/lib/motor";
+import { personaje } from "@/lib/personajes";
 import { frase, tituloRelacion } from "@/lib/textos";
 
 export default async function Jugador({ params, searchParams }: PageProps<"/jugador/[id]">) {
@@ -27,6 +28,10 @@ export default async function Jugador({ params, searchParams }: PageProps<"/juga
   const deuda = deudas(m).find((d) => d.id === j.id);
   const pct = f.jugados ? Math.round((f.ganados / f.jugados) * 100) : 0;
   const tercer = f.tercerSetG + f.tercerSetP;
+  const perfil = personaje(j.nombre);
+  const lados = (["derecha", "izquierda"] as const)
+    .map((l) => ({ l, ...f.porLado[l], n: f.porLado[l].g + f.porLado[l].p }))
+    .filter((x) => x.n > 0);
 
   const otros = m.jugadores
     .filter((x) => x.id !== j.id)
@@ -57,15 +62,28 @@ export default async function Jugador({ params, searchParams }: PageProps<"/juga
       <div className="pila" style={{ justifyItems: "center", textAlign: "center", gap: 8 }}>
         <Avatar j={j} tam={128} />
         <h1>{j.nombre}</h1>
+        {perfil && (
+          <div className="pila" style={{ gap: 4, justifyItems: "center" }}>
+            <span className="chapa rosa">aka {perfil.apodos.join(" · ")}</span>
+            <span className="suave pequeno" style={{ maxWidth: 380 }}>
+              {perfil.bio}
+            </span>
+            {perfil.frase && <i className="pequeno">«{perfil.mayusculas ? perfil.frase.toUpperCase() : perfil.frase}»</i>}
+          </div>
+        )}
         <div className="fila envolver" style={{ justifyContent: "center" }}>
           {puestoT > 0 && <span className="chapa">#{puestoT} en {temporada.etiqueta}</span>}
           <span className="chapa">ELO {Math.round(fT.elo)}</span>
           {f.racha >= 3 && <span className="chapa verde">🔥 {f.racha} seguidas</span>}
           {f.racha <= -3 && <span className="chapa rojo">🚑 {-f.racha} derrotas seguidas</span>}
         </div>
-        {j.id === me.id && (
+        {j.id === me.id ? (
           <Link href="/yo" className="boton secundario mini">
             📸 Cambiar foto
+          </Link>
+        ) : (
+          <Link href={`/vs?x=${me.id}&y=${j.id}`} className="boton mini">
+            🥊 {me.nombre} vs {j.nombre}
           </Link>
         )}
       </div>
@@ -110,6 +128,23 @@ export default async function Jugador({ params, searchParams }: PageProps<"/juga
           <span>3er set ganado</span>
         </div>
       </div>
+
+      {lados.length > 0 && (
+        <div className="seccion">
+          <h2 style={{ marginBottom: 10 }}>↔️ Por lado</h2>
+          <div className="cifras" style={{ gridTemplateColumns: "1fr 1fr" }}>
+            {lados.map((x) => (
+              <div key={x.l} className="cifra">
+                <b>{Math.round((x.g / x.n) * 100)}%</b>
+                <span>
+                  {j.nombre} ({x.l === "derecha" ? "derecha" : "revés"}) · {x.g}G {x.p}P
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="suave pequeno">Solo partidos en los que se apuntó quién iba a la derecha.</p>
+        </div>
+      )}
 
       {f.historial.length > 2 && (
         <div className="seccion tarjeta">
@@ -166,7 +201,7 @@ export default async function Jugador({ params, searchParams }: PageProps<"/juga
           <h2>🥊 Cara a cara</h2>
           <div className="pila" style={{ gap: 6 }}>
             {otros.map((o) => (
-              <Link key={o.x.id} href={`/jugador/${o.x.id}`} className="tarjeta fila entre" style={{ padding: 10 }}>
+              <Link key={o.x.id} href={`/vs?x=${j.id}&y=${o.x.id}`} className="tarjeta fila entre" style={{ padding: 10 }}>
                 <span className="fila">
                   <Avatar j={o.x} tam={30} /> <b>{o.x.nombre}</b>
                 </span>

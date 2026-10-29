@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { confirmarPartido, rechazarPartido, votar } from "@/app/acciones";
+import { confirmarPartido, rechazarPartido, votar, votarMegafono } from "@/app/acciones";
+import { BotonBorrar, Reaccion, SelloActa } from "@/components/Animaciones";
 import { Avatar } from "@/components/Avatar";
 import { Escena } from "@/components/Escena";
 import { TarjetaPartido } from "@/components/TarjetaPartido";
 import { cargarMundo, yo } from "@/lib/datos";
-import { confirmadores, enPartido, estadisticas, veredicto } from "@/lib/motor";
+import { confirmadores, enPartido, estadisticas, ganador, veredicto } from "@/lib/motor";
 import { Denunciar } from "./Denunciar";
 
 export default async function DetallePartido({ params, searchParams }: PageProps<"/partidos/[id]">) {
@@ -23,6 +24,12 @@ export default async function DetallePartido({ params, searchParams }: PageProps
   const miVoto = denuncia?.votos.find((x) => x.jugadorId === me.id);
   const cambios = estadisticas(m).cambios.filter((c) => c.partidoId === p.id);
   const torneo = p.torneoId ? m.torneos.find((t) => t.id === p.torneoId) : null;
+  const decidido = p.estado === "confirmado" && p.formato !== "inacabado";
+  const ganadores: number[] = ganador(p.sets) === "a" ? p.a : (p.b ?? []);
+  const resultado = decidido && juego ? (ganadores.includes(me.id) ? "gana" : "pierde") : null;
+  const intentos = m.eventos.filter((e) => e.tipo === "intento_borrado" && e.partidoId === p.id);
+  const gritos = m.megafonos.filter((v) => v.partidoId === p.id);
+  const miGrito = gritos.find((v) => v.votante === me.id)?.acusado ?? 0;
 
   return (
     <>
@@ -40,7 +47,12 @@ export default async function DetallePartido({ params, searchParams }: PageProps
         </div>
       )}
 
-      <TarjetaPartido p={p} jugadores={jugadores} etiqueta={torneo ? <span className="chapa">🏟️ {torneo.nombre}</span> : null} />
+      <Reaccion resultado={resultado} clave={`${p.id}-${me.id}`} avatar={<Avatar j={me} tam={64} />} />
+
+      <div className="con-sello">
+        {p.estado === "confirmado" && <SelloActa id={p.id} />}
+        <TarjetaPartido p={p} jugadores={jugadores} etiqueta={torneo ? <span className="chapa">🏟️ {torneo.nombre}</span> : null} />
+      </div>
 
       {p.estado === "pendiente" && (
         <div className="tarjeta pila" style={{ marginTop: 12 }}>
@@ -73,7 +85,13 @@ export default async function DetallePartido({ params, searchParams }: PageProps
         <div className="seccion">
           <h2>📈 Puntos ELO</h2>
           <div className="pila" style={{ gap: 6 }}>
-            {cambios.length === 0 && <p className="suave">Este partido no cuenta para el ranking.</p>}
+            {cambios.length === 0 && (
+              <p className="suave">
+                {p.formato === "inacabado"
+                  ? "⏸️ Inacabado: suma juegos y sets, pero ni victoria, ni derrota, ni puntos."
+                  : "Este partido no cuenta para el ranking."}
+              </p>
+            )}
             {cambios.map((c) => (
               <div key={c.jugadorId} className="fila entre">
                 <span className="fila">
@@ -87,6 +105,49 @@ export default async function DetallePartido({ params, searchParams }: PageProps
             ))}
           </div>
           {p.confirmadoPor && <p className="suave pequeno">Confirmado por {nombre(p.confirmadoPor)}.</p>}
+        </div>
+      )}
+
+      {p.estado === "confirmado" && juego && (
+        <div className="seccion tarjeta pila">
+          <b>📣 ¿Alguien le gritó a su pareja?</b>
+          <span className="suave pequeno">Votan los que jugaron. Con 2 votos al mismo, se lleva el Megáfono.</span>
+          <form action={votarMegafono} className="elegir">
+            <input type="hidden" name="id" value={p.id} />
+            {enPartido(p)
+              .filter((id) => id !== me.id)
+              .map((id) => {
+                const votos = gritos.filter((v) => v.acusado === id).length;
+                return (
+                  <button key={id} name="acusado" value={id} aria-pressed={miGrito === id}>
+                    <Avatar j={jugadores.get(id)!} tam={26} /> {nombre(id)}
+                    {votos > 0 && <span className="chapa rojo">{"📣".repeat(votos)}</span>}
+                  </button>
+                );
+              })}
+            <button name="acusado" value={0} aria-pressed={miGrito === 0}>
+              🤐 Nadie
+            </button>
+          </form>
+        </div>
+      )}
+
+      {intentos.length > 0 && (
+        <div className="seccion tarjeta alerta pila" style={{ gap: 6 }}>
+          <b>📜 Historial del acta</b>
+          {intentos.map((e) => (
+            <span key={e.id} className="pequeno">
+              🥹 <b>{nombre(e.jugadorId)}</b> intentó borrar este partido el{" "}
+              {new Date(e.creado).toLocaleString("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Madrid" })}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {p.estado === "confirmado" && juego && (
+        <div className="seccion fila entre">
+          <span className="suave pequeno">¿Algo no cuadra? Llévalo al tribunal.</span>
+          <BotonBorrar id={p.id} />
         </div>
       )}
 

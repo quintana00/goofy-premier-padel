@@ -3,7 +3,17 @@ import { Avatar } from "@/components/Avatar";
 import { ganador } from "@/lib/motor";
 import type { Jugador, Partido } from "@/lib/tipos";
 
-export function Lado({ ids, externa, jugadores }: { ids: number[] | null; externa?: string | null; jugadores: Map<number, Jugador> }) {
+export function Lado({
+  ids,
+  externa,
+  jugadores,
+  derecha,
+}: {
+  ids: number[] | null;
+  externa?: string | null;
+  jugadores: Map<number, Jugador>;
+  derecha?: number | null;
+}) {
   if (!ids) return <span className="fila" style={{ gap: 6 }}>🌍 {externa}</span>;
   return (
     <span className="fila" style={{ gap: 6, minWidth: 0 }}>
@@ -12,7 +22,13 @@ export function Lado({ ids, externa, jugadores }: { ids: number[] | null; extern
         return j ? <Avatar key={id} j={j} tam={28} /> : null;
       })}
       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {ids.map((id) => jugadores.get(id)?.nombre ?? "?").join(" y ")}
+        {ids.map((id, i) => (
+          <span key={id}>
+            {i > 0 && " y "}
+            {jugadores.get(id)?.nombre ?? "?"}
+            {derecha && <sup className="lado-juego">{derecha === id ? "D" : "R"}</sup>}
+          </span>
+        ))}
       </span>
     </span>
   );
@@ -27,17 +43,26 @@ export function TarjetaPartido({
   jugadores: Map<number, Jugador>;
   etiqueta?: React.ReactNode;
 }) {
-  const gana = ganador(p.sets);
+  const inacabado = p.formato === "inacabado";
+  const gana = inacabado ? null : ganador(p.sets);
   const fecha = new Date(`${p.fecha}T12:00:00`).toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" });
   return (
     <Link href={`/partidos/${p.id}`} className="tarjeta partido">
       <div className="fila entre suave pequeno">
-        <span>{fecha}</span>
+        <span>
+          {fecha} · {FORMATOS[p.formato]}
+          {p.estado === "confirmado" && <span className="chapa acta" style={{ marginLeft: 6 }}>📜 En acta</span>}
+        </span>
         {etiqueta}
       </div>
       {(["a", "b"] as const).map((lado) => (
-        <div key={lado} className={`lado ${gana === lado ? "gana" : "pierde"}`}>
-          <Lado ids={lado === "a" ? p.a : p.b} externa={p.bExterna} jugadores={jugadores} />
+        <div key={lado} className={`lado ${inacabado ? "" : gana === lado ? "gana" : "pierde"}`}>
+          <Lado
+            ids={lado === "a" ? p.a : p.b}
+            externa={p.bExterna}
+            jugadores={jugadores}
+            derecha={lado === "a" ? p.aDerecha : p.bDerecha}
+          />
           <span className="marcador">
             {p.sets.map(([x, y], i) => {
               const mio = lado === "a" ? x : y;
@@ -51,6 +76,15 @@ export function TarjetaPartido({
           </span>
         </div>
       ))}
+      {p.impuestaPor && (
+        <span className="suave pequeno">🙄 Pareja impuesta, según {jugadores.get(p.impuestaPor)?.nombre}</span>
+      )}
     </Link>
   );
 }
+
+export const FORMATOS: Record<Partido["formato"], string> = {
+  "1set": "A 1 set",
+  mejor3: "Al mejor de 3",
+  inacabado: "⏸️ Inacabado",
+};

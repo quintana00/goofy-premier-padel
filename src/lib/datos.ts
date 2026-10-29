@@ -15,7 +15,7 @@ const iso = (d: Date | string | null) => (d == null ? null : typeof d === "strin
 
 export const cargarMundo = cache(async (): Promise<Mundo> => {
   const sql = await db();
-  const [jugadores, partidos, denuncias, votos, torneos, resultados, gastos, partes, temporadas] = await Promise.all([
+  const [jugadores, partidos, denuncias, votos, torneos, resultados, gastos, partes, temporadas, eventos, megafonos] = await Promise.all([
     sql`select id, nombre, avatar_v from jugadores order by nombre`,
     sql`select *, fecha::text as fecha_t from partidos where estado <> 'rechazado'`,
     sql`select * from denuncias`,
@@ -24,7 +24,9 @@ export const cargarMundo = cache(async (): Promise<Mundo> => {
     sql`select * from torneo_resultados order by id`,
     sql`select *, fecha::text as fecha_t from gastos order by fecha desc, id desc`,
     sql`select * from gasto_partes order by id`,
-    sql`select *, inicio::text as inicio_t from temporadas order by inicio, id`,
+    sql`select *, inicio::text as inicio_t, fin::text as fin_t from temporadas order by inicio, id`,
+    sql`select * from eventos order by id`,
+    sql`select * from megafonos`,
   ]);
 
   return {
@@ -43,6 +45,10 @@ export const cargarMundo = cache(async (): Promise<Mundo> => {
         creadoPor: p.creado_por,
         confirmadoPor: p.confirmado_por,
         torneoId: p.torneo_id,
+        formato: p.formato,
+        aDerecha: p.a_derecha,
+        bDerecha: p.b_derecha,
+        impuestaPor: p.impuesta_por,
       }),
     ),
     denuncias: denuncias.map((d) => ({
@@ -61,6 +67,7 @@ export const cargarMundo = cache(async (): Promise<Mundo> => {
         nombre: t.nombre,
         fecha: t.fecha_t,
         creadoPor: t.creado_por,
+        americano: t.americano,
         resultados: resultados
           .filter((r) => r.torneo_id === t.id)
           .map((r) => ({ id: r.id, j1: r.j1, j2: r.j2, puesto: r.puesto })),
@@ -84,7 +91,15 @@ export const cargarMundo = cache(async (): Promise<Mundo> => {
           })),
       }),
     ),
-    temporadas: temporadas.map((t) => ({ id: t.id, nombre: t.nombre, inicio: t.inicio_t })),
+    temporadas: temporadas.map((t) => ({ id: t.id, nombre: t.nombre, inicio: t.inicio_t, fin: t.fin_t })),
+    eventos: eventos.map((e) => ({
+      id: e.id,
+      tipo: e.tipo,
+      jugadorId: e.jugador_id,
+      partidoId: e.partido_id,
+      creado: iso(e.creado)!,
+    })),
+    megafonos: megafonos.map((v) => ({ partidoId: v.partido_id, votante: v.votante, acusado: v.acusado })),
   };
 });
 

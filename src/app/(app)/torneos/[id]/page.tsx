@@ -6,6 +6,7 @@ import { TarjetaPartido } from "@/components/TarjetaPartido";
 import { cargarMundo, yo } from "@/lib/datos";
 import { PUESTOS } from "@/lib/motor";
 import { FormPuesto } from "../Formularios";
+import { AmericanoVista } from "./Americano";
 
 export default async function Torneo({ params }: PageProps<"/torneos/[id]">) {
   const { id } = await params;
@@ -18,6 +19,19 @@ export default async function Torneo({ params }: PageProps<"/torneos/[id]">) {
   );
   const campeones = resultados.find((r) => r.puesto === "Campeones");
   const partidos = m.partidos.filter((p) => p.torneoId === t.id).sort((x, y) => y.id - x.id);
+
+  if (t.americano)
+    return (
+      <>
+        <div className="cabecera">
+          <h1>{t.nombre}</h1>
+          <Link href="/torneos" className="boton secundario mini">
+            ← Torneos
+          </Link>
+        </div>
+        <AmericanoVista t={t} jugadores={jugadores} />
+      </>
+    );
 
   return (
     <>

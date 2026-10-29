@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { cargarMundo, hoyMadrid, temporadaActual, yo } from "@/lib/datos";
-import { PUESTOS, confirmadores, enPartido, repartir, setsValidos } from "@/lib/motor";
+import { PUESTOS, confirmadores, enPartido, ganador, generarAmericano, repartir, setsValidos } from "@/lib/motor";
 import { COOKIE_GRUPO, COOKIE_SESION, UN_ANO, codigoGrupo, valorGrupo, valorSesion } from "@/lib/sesion";
 import type { Marcador } from "@/lib/tipos";
 
@@ -139,10 +139,14 @@ export async function nuevaTemporada(_: Estado, fd: FormData): Promise<Estado> {
   try {
     await yo();
     const nombre = z.string().trim().min(2).max(40).parse(fd.get("nombre"));
+    const fin = Fecha.optional().or(z.literal("")).parse(fd.get("fin") ?? "") || null;
     const m = await cargarMundo();
     if (temporadaActual(m).inicio === m.hoy) return { error: "Ya ha empezado una temporada hoy" };
+    if (fin && fin <= m.hoy) return { error: "La temporada tiene que acabar después de hoy" };
     const sql = await db();
-    await sql`insert into temporadas (nombre, inicio) values (${nombre}, ${m.hoy})`;
+    // La que estaba en marcha se cierra ayer.
+    await sql`update temporadas set fin = ${m.hoy}::date - 1 where id = ${temporadaActual(m).id}`;
+    await sql`insert into temporadas (nombre, inicio, fin) values (${nombre}, ${m.hoy}, ${fin})`;
   } catch (e) {
     return fallo(e);
   }
@@ -150,7 +154,25 @@ export async function nuevaTemporada(_: Estado, fd: FormData): Promise<Estado> {
   return { ok: "¡Nueva temporada! Todos a 1000 puntos" };
 }
 
+export async function fijarFinTemporada(_: Estado, fd: FormData): Promise<Estado> {
+  try {
+    await yo();
+    const m = await cargarMundo();
+    const fin = Fecha.parse(fd.get("fin"));
+    const t = temporadaActual(m);
+    if (fin < t.inicio) return { error: "No puede acabar antes de empezar" };
+    const sql = await db();
+    await sql`update temporadas set fin = ${fin} where id = ${t.id}`;
+  } catch (e) {
+    return fallo(e);
+  }
+  refrescar();
+  return { ok: "Fecha de fin guardada. Que empiece la cuenta atrás ⏳" };
+}
+
 // ---------- Partidos ----------
+
+const Fecha = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha no válida");
 
 const IdOpcional = z.preprocess((v) => (v === "" || v == null ? null : v), z.coerce.number().int().positive().nullable());
 
@@ -168,13 +190,17 @@ export async function nuevoPartido(_: Estado, fd: FormData): Promise<Estado> {
         bExterna: z.string().trim().max(40).optional().default(""),
         sets: z.string(),
         torneoId: IdOpcional,
+        formato: z.enum(["1set", "mejor3", "inacabado"]).default("mejor3"),
+        aDerecha: IdOpcional,
+        bDerecha: IdOpcional,
+        impuesta: z.string().optional(),
       })
       .parse(Object.fromEntries(fd));
     if (datos.fecha > hoyMadrid()) return { error: "Ese partido aún no se ha jugado, vidente" };
     const sets = z
       .array(z.tuple([z.number().int(), z.number().int()]))
       .parse(JSON.parse(datos.sets)) as Marcador[];
-    const errSets = setsValidos(sets);
+    const errSets = setsValidos(sets, datos.formato);
     if (errSets) return { error: errSets };
     const externa = !datos.b1 && !datos.b2;
     if (externa && !datos.bExterna) return { error: "Elige a los rivales o pon el nombre de la pareja de fuera" };
@@ -183,6 +209,10 @@ export async function nuevoPartido(_: Estado, fd: FormData): Promise<Estado> {
     if (new Set(ids).size !== ids.length) return { error: "Hay un jugador repetido. Nadie juega en los dos lados" };
     const m = await cargarMundo();
     if (!ids.every((x) => m.jugadores.some((j) => j.id === x))) return { error: "Jugador desconocido" };
+    if (datos.aDerecha && ![datos.a1, datos.a2].includes(datos.aDerecha)) return { error: "El de la derecha tiene que ser de su pareja" };
+    if (datos.bDerecha && (externa || ![datos.b1, datos.b2].includes(datos.bDerecha)))
+      return { error: "El de la derecha tiene que ser de su pareja" };
+    const impuestaPor = datos.impuesta && ids.includes(me.id) ? me.id : null;
 
     const p = {
       a: [datos.a1, datos.a2] as [number, number],
@@ -193,16 +223,53 @@ export async function nuevoPartido(_: Estado, fd: FormData): Promise<Estado> {
     const autoconfirmado = confirmadores(p).length === 0;
     const sql = await db();
     [{ id }] = await sql`
-      insert into partidos (fecha, a1, a2, b1, b2, b_externa, sets, estado, creado_por, torneo_id)
+      insert into partidos (fecha, a1, a2, b1, b2, b_externa, sets, estado, creado_por, torneo_id,
+                            formato, a_derecha, b_derecha, impuesta_por)
       values (${datos.fecha}, ${datos.a1}, ${datos.a2}, ${p.b?.[0] ?? null}, ${p.b?.[1] ?? null},
               ${externa ? datos.bExterna : null}, ${sql.json(sets)}, ${autoconfirmado ? "confirmado" : "pendiente"},
-              ${me.id}, ${datos.torneoId})
+              ${me.id}, ${datos.torneoId}, ${datos.formato}, ${datos.aDerecha}, ${externa ? null : datos.bDerecha},
+              ${impuestaPor})
       returning id`;
   } catch (e) {
     return fallo(e);
   }
   refrescar();
   redirect(`/partidos/${id}?nuevo=1`);
+}
+
+// Un partido confirmado está "en acta": no se borra. Intentarlo con uno perdido queda apuntado (y da medalla).
+export async function intentarBorrar(_: Estado, fd: FormData): Promise<Estado> {
+  const me = await yo();
+  const p = await partidoPara(Number(fd.get("id")));
+  if (p.estado !== "confirmado") return { error: "Este partido no está en acta" };
+  const perdedores: number[] = ganador(p.sets) === "a" ? (p.b ?? []) : p.a;
+  const perdio = p.formato !== "inacabado" && perdedores.includes(me.id);
+  if (perdio) {
+    const m = await cargarMundo();
+    const ya = m.eventos.some((e) => e.tipo === "intento_borrado" && e.jugadorId === me.id && e.partidoId === p.id);
+    if (!ya) {
+      const sql = await db();
+      await sql`insert into eventos (tipo, jugador_id, partido_id) values ('intento_borrado', ${me.id}, ${p.id})`;
+    }
+    refrescar();
+    return { error: "Está en acta: aquí no se borra nada. Y el grupo ya sabe que lo has intentado 🥹" };
+  }
+  return { error: "Está en acta: aquí no se borra nada. Si algo no cuadra, llévalo al tribunal ⚖️" };
+}
+
+// Los jugadores del partido votan si alguien le gritó a su pareja. Con 2 votos, megáfono.
+export async function votarMegafono(fd: FormData) {
+  const me = await yo();
+  const p = await partidoPara(Number(fd.get("id")));
+  const acusado = Number(fd.get("acusado"));
+  const jugadores = enPartido(p);
+  if (!jugadores.includes(me.id)) return;
+  const sql = await db();
+  if (!acusado) await sql`delete from megafonos where partido_id = ${p.id} and votante = ${me.id}`;
+  else if (acusado !== me.id && jugadores.includes(acusado))
+    await sql`insert into megafonos (partido_id, votante, acusado) values (${p.id}, ${me.id}, ${acusado})
+              on conflict (partido_id, votante) do update set acusado = excluded.acusado`;
+  refrescar();
 }
 
 async function partidoPara(id: number) {
@@ -346,4 +413,51 @@ export async function borrarGasto(fd: FormData) {
   const sql = await db();
   await sql`delete from gastos where id = ${Number(fd.get("gasto"))} and pagador = ${me.id}`;
   refrescar();
+}
+
+// ---------- Torneo cruzado (americano) ----------
+
+export async function nuevoAmericano(_: Estado, fd: FormData): Promise<Estado> {
+  let id: number;
+  try {
+    const me = await yo();
+    const nombre = z.string().trim().min(3, "Ponle nombre al torneo").max(60).parse(fd.get("nombre"));
+    const fecha = Fecha.parse(fd.get("fecha"));
+    const juegos = z.coerce.number().int().min(4).max(32).parse(fd.get("juegos"));
+    const jugadores = [...new Set(fd.getAll("jugadores").map(Number))].filter(Number.isInteger);
+    if (jugadores.length < 4) return { error: "Hacen falta al menos 4 jugadores" };
+    if (jugadores.length > 16) return { error: "Máximo 16 jugadores" };
+    const americano = generarAmericano(jugadores, juegos, Date.now() % 1_000_000_007);
+    const sql = await db();
+    [{ id }] = await sql`insert into torneos (nombre, fecha, creado_por, americano)
+                         values (${nombre}, ${fecha}, ${me.id}, ${sql.json(americano)}) returning id`;
+  } catch (e) {
+    return fallo(e);
+  }
+  refrescar();
+  redirect(`/torneos/${id}`);
+}
+
+export async function resultadoAmericano(_: Estado, fd: FormData): Promise<Estado> {
+  try {
+    await yo();
+    const torneo = z.coerce.number().int().parse(fd.get("torneo"));
+    const ronda = z.coerce.number().int().min(0).parse(fd.get("ronda"));
+    const pista = z.coerce.number().int().min(0).parse(fd.get("pista"));
+    const ja = z.coerce.number().int().min(0).max(99).parse(fd.get("ja"));
+    const jb = z.coerce.number().int().min(0).max(99).parse(fd.get("jb"));
+    const sql = await db();
+    await sql.begin(async (tx) => {
+      const [t] = await tx`select americano from torneos where id = ${torneo} for update`;
+      const p = t?.americano?.rondas?.[ronda]?.pistas?.[pista];
+      if (!p) throw new Error("Ese partido no existe");
+      p.ja = ja;
+      p.jb = jb;
+      await tx`update torneos set americano = ${tx.json(t.americano)} where id = ${torneo}`;
+    });
+  } catch (e) {
+    return fallo(e);
+  }
+  refrescar();
+  return { ok: "Guardado" };
 }

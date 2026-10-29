@@ -1,6 +1,6 @@
 // Todo el cálculo (ELO, piques, medallas, deudas) es puro: recibe los datos y devuelve números.
 // Así se puede probar sin base de datos y recalcular cualquier temporada al vuelo.
-import type { Denuncia, Marcador, Mundo, Partido, Veredicto } from "./tipos";
+import type { Americano, Denuncia, Formato, Marcador, Mundo, Partido, PistaAmericano, Veredicto } from "./tipos";
 
 export const ELO_INICIAL = 1000;
 
@@ -80,6 +80,8 @@ export type Ficha = {
   remontadas: number;
   roscosDados: number;
   roscosRecibidos: number;
+  inacabados: number;
+  porLado: { derecha: { g: number; p: number }; izquierda: { g: number; p: number } };
   ultimo: string | null;
 };
 
@@ -93,14 +95,16 @@ export type Estadisticas = {
   caras: Cara[];
   parejas: Pareja[];
   cambios: Cambio[];
-  partidos: Partido[];
+  partidos: Partido[]; // los que tienen ganador
+  inacabados: Partido[];
 };
 
 function fichaVacia(id: number): Ficha {
   return {
     id, elo: ELO_INICIAL, historial: [ELO_INICIAL], jugados: 0, ganados: 0, perdidos: 0, setsG: 0, setsP: 0,
     juegosG: 0, juegosP: 0, racha: 0, mejorRacha: 0, peorRacha: 0, tercerSetG: 0, tercerSetP: 0,
-    remontadas: 0, roscosDados: 0, roscosRecibidos: 0, ultimo: null,
+    remontadas: 0, roscosDados: 0, roscosRecibidos: 0, inacabados: 0,
+    porLado: { derecha: { g: 0, p: 0 }, izquierda: { g: 0, p: 0 } }, ultimo: null,
   };
 }
 
@@ -114,7 +118,30 @@ export function estadisticas(m: Mundo, desde?: string, hasta?: string): Estadist
   const partidos = partidosQueCuentan(m, desde, hasta);
 
   for (const p of partidos) {
+    // Inacabado: solo suma juegos y sets terminados. Ni victoria, ni derrota, ni ELO.
+    if (p.formato === "inacabado") {
+      for (const [lado, nombre] of [[p.a, "a"], [p.b ?? [], "b"]] as const) {
+        for (const id of lado) {
+          const f = fichas.get(id);
+          if (!f) continue;
+          f.inacabados++;
+          f.ultimo = p.fecha;
+          p.sets.forEach(([x, y], i) => {
+            const [mios, suyos] = nombre === "a" ? [x, y] : [y, x];
+            f.juegosG += mios;
+            f.juegosP += suyos;
+            if (i === p.sets.length - 1) return; // el último set es el que quedó a medias
+            if (mios > suyos) f.setsG++;
+            else if (suyos > mios) f.setsP++;
+          });
+        }
+      }
+      continue;
+    }
+
     const gana = ganador(p.sets);
+    // ELO por parejas: cada pareja vale la media de sus dos jugadores. Ganar con un compañero flojo
+    // (media más baja) da más puntos; perder con uno fuerte (media más alta) quita más.
     const eloLado = (lado: number[] | null) =>
       lado ? lado.reduce((s, id) => s + (fichas.get(id)?.elo ?? ELO_INICIAL), 0) / lado.length : ELO_INICIAL;
     const eloA = eloLado(p.a);
@@ -126,9 +153,9 @@ export function estadisticas(m: Mundo, desde?: string, hasta?: string): Estadist
     const margen = 1 + Math.min(Math.abs(juegosA - juegosB), 10) / 20;
     const deltaA = K * margen * ((gana === "a" ? 1 : 0) - esperadoA);
 
-    const lados: [number[], "a" | "b", number][] = [[p.a, "a", deltaA]];
-    if (p.b) lados.push([p.b, "b", -deltaA]);
-    for (const [lado, nombre, delta] of lados) {
+    const lados: [number[], "a" | "b", number, number | null][] = [[p.a, "a", deltaA, p.aDerecha]];
+    if (p.b) lados.push([p.b, "b", -deltaA, p.bDerecha]);
+    for (const [lado, nombre, delta, derecha] of lados) {
       const gano = gana === nombre;
       for (const id of lado) {
         const f = fichas.get(id);
@@ -139,6 +166,11 @@ export function estadisticas(m: Mundo, desde?: string, hasta?: string): Estadist
         f.jugados++;
         if (gano) f.ganados++;
         else f.perdidos++;
+        if (derecha) {
+          const l = f.porLado[derecha === id ? "derecha" : "izquierda"];
+          if (gano) l.g++;
+          else l.p++;
+        }
         f.racha = gano ? Math.max(f.racha, 0) + 1 : Math.min(f.racha, 0) - 1;
         f.mejorRacha = Math.max(f.mejorRacha, f.racha);
         f.peorRacha = Math.min(f.peorRacha, f.racha);
@@ -158,7 +190,7 @@ export function estadisticas(m: Mundo, desde?: string, hasta?: string): Estadist
         });
         const primero = p.sets[0];
         const perdioPrimero = nombre === "a" ? primero[0] < primero[1] : primero[1] < primero[0];
-        if (gano && perdioPrimero) f.remontadas++;
+        if (gano && perdioPrimero && p.sets.length > 1) f.remontadas++;
       }
       const [j1, j2] = lado;
       const k = clave(j1, j2);
@@ -186,7 +218,15 @@ export function estadisticas(m: Mundo, desde?: string, hasta?: string): Estadist
   const ranking = [...fichas.values()].sort(
     (x, y) => Number(y.jugados > 0) - Number(x.jugados > 0) || y.elo - x.elo || y.ganados - x.ganados,
   );
-  return { fichas, ranking, caras: [...caras.values()], parejas: [...parejas.values()], cambios, partidos };
+  return {
+    fichas,
+    ranking,
+    caras: [...caras.values()],
+    parejas: [...parejas.values()],
+    cambios,
+    partidos: partidos.filter((p) => p.formato !== "inacabado"),
+    inacabados: partidos.filter((p) => p.formato === "inacabado"),
+  };
 }
 
 // ---------- Piques ----------
@@ -304,8 +344,8 @@ export function medallas(m: Mundo, est: Estadisticas): Medalla[] {
   for (const f of conPartidos) {
     if (f.racha <= -5) add("ambulancia", "🚑", "Ambulancia", `${-f.racha} derrotas seguidas. Que alguien llame al 112`, f.id);
     else if (f.racha <= -3) add("tocado", "🤕", "Tocado y hundido", `${-f.racha} derrotas seguidas`, f.id);
-    if (f.racha >= 5) add("imparable", "🔥", "Imparable", `${f.racha} victorias seguidas`, f.id);
-    else if (f.racha >= 3) add("llamas", "🌶️", "En racha", `${f.racha} victorias seguidas`, f.id);
+    if (f.racha >= 3)
+      add("ego", "🦚", "Ego por las nubes", `${f.racha} victorias seguidas${f.racha >= 5 ? ". El ego ya no cabe en la pista" : ""}`, f.id);
     if (f.tercerSetP >= 3 && f.tercerSetG / (f.tercerSetG + f.tercerSetP) <= 0.34)
       add("pechofrio", "🧊", "Pecho Frío", `Ha perdido ${f.tercerSetP} terceros sets de ${f.tercerSetG + f.tercerSetP}`, f.id);
     if (f.ultimo && diasEntre(f.ultimo, m.hoy) > 30)
@@ -347,7 +387,52 @@ export function medallas(m: Mundo, est: Estadisticas): Medalla[] {
       for (const id of ganadores) trampas.set(id, (trampas.get(id) ?? 0) + 1);
     }
   }
-  for (const [id, n] of lloros) add("lloron", "😭", "Llorón Oficial", `${n} denuncia${n > 1 ? "s" : ""} de amaño desestimada${n > 1 ? "s" : ""}`, id);
+  // Llorón: denuncias desestimadas + intentos de borrar un partido perdido.
+  const intentos = new Map<number, number>();
+  for (const e of m.eventos) if (e.tipo === "intento_borrado") intentos.set(e.jugadorId, (intentos.get(e.jugadorId) ?? 0) + 1);
+  for (const id of new Set([...lloros.keys(), ...intentos.keys()])) {
+    const partes = [];
+    const n = lloros.get(id) ?? 0;
+    const k = intentos.get(id) ?? 0;
+    if (k) partes.push(`intentó borrar ${k} partido${k > 1 ? "s" : ""} perdido${k > 1 ? "s" : ""}`);
+    if (n) partes.push(`${n} denuncia${n > 1 ? "s" : ""} de amaño desestimada${n > 1 ? "s" : ""}`);
+    add("lloron", "🥹", "Llorón Oficial", partes.join(" y ").replace(/^./, (c) => c.toUpperCase()), id);
+  }
+
+  // Megáfono: al menos dos de los otros tres jugadores del partido dicen que gritó a su pareja.
+  const gritos = new Map<number, number>();
+  const porPartido = new Map<string, number>();
+  for (const v of m.megafonos) porPartido.set(`${v.partidoId}-${v.acusado}`, (porPartido.get(`${v.partidoId}-${v.acusado}`) ?? 0) + 1);
+  for (const [k, n] of porPartido) {
+    if (n < 2) continue;
+    const acusado = Number(k.split("-")[1]);
+    gritos.set(acusado, (gritos.get(acusado) ?? 0) + 1);
+  }
+  for (const [id, n] of gritos) add("megafono", "📣", "Megáfono", `Pillado gritando a su pareja en ${n} partido${n > 1 ? "s" : ""}`, id);
+
+  // Modo Strava: el que más ha jugado en los últimos 7 días (mínimo 4).
+  const semana = sumarDias(m.hoy, -6);
+  const enSemana = new Map<number, number>();
+  for (const p of partidosQueCuentan(m, semana)) for (const id of enPartido(p)) enSemana.set(id, (enSemana.get(id) ?? 0) + 1);
+  const [stravero, nStrava] = [...enSemana.entries()].sort((a, b) => b[1] - a[1])[0] ?? [0, 0];
+  if (nStrava >= 4) add("strava", "🏊", "Modo Strava", `${nStrava} partidos esta semana. Esto ya hay que subirlo a Strava`, stravero);
+
+  // Pareja impuesta: quien más veces dice que la pareja se la impusieron.
+  const impuestas = new Map<number, number>();
+  for (const p of m.partidos) if (p.impuestaPor && p.estado !== "rechazado") impuestas.set(p.impuestaPor, (impuestas.get(p.impuestaPor) ?? 0) + 1);
+  for (const [id, n] of impuestas) if (n >= 2) add("impuesta", "🙄", "Siempre me la imponéis", `Ha dicho ${n} veces que la pareja se la impusieron`, id);
+
+  // Reconciliación Guadalquivir: las 2 rivalidades más gordas (3+ duelos) cuyos protagonistas también ganan juntos.
+  const reconciliables = est.caras
+    .filter((c) => c.jugados >= 3 && est.parejas.some((p) => p.j1 === c.x && p.j2 === c.y && p.ganados > 0))
+    .sort((a, b) => b.jugados - a.jugados || Math.abs(a.ganaX - a.ganaY) - Math.abs(b.ganaX - b.ganaY))
+    .slice(0, 2);
+  for (const c of reconciliables) {
+    for (const id of [c.x, c.y]) {
+      const otro = id === c.x ? c.y : c.x;
+      add(`reconciliacion-${otro}`, "🤝", "Reconciliación Guadalquivir", `Rivales en ${c.jugados} partidos, pero juntos ganan`, id);
+    }
+  }
   for (const [id, n] of trampas) add("tramposo", "🕵️", "Tramposo Condenado", `${n} partido${n > 1 ? "s" : ""} anulado${n > 1 ? "s" : ""} por amaño`, id);
 
   // Torneos
@@ -370,18 +455,150 @@ export function textoSets(sets: Marcador[], lado: "a" | "b" = "a") {
   return sets.map(([x, y]) => (lado === "a" ? `${x}-${y}` : `${y}-${x}`)).join(" ");
 }
 
-// Un set vale si alguien lo gana. Admite el super tie-break (10-8) en el tercero.
-export function setsValidos(sets: Marcador[]): string | null {
+// Valida el marcador según el formato. Admite el super tie-break (10-8) como tercer set.
+export function setsValidos(sets: Marcador[], formato: Formato = "mejor3"): string | null {
   if (sets.length < 1 || sets.length > 3) return "Pon entre 1 y 3 sets";
   for (const [x, y] of sets) {
     if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x > 30 || y > 30) return "Hay un set raro";
-    if (x === y) return "Un set no puede acabar en empate";
+    if (x === y && formato !== "inacabado") return "Un set no puede acabar en empate";
   }
+  if (formato === "inacabado") {
+    return sets.some(([x, y]) => x + y > 0) ? null : "Pon cómo iba el marcador cuando se paró";
+  }
+  if (formato === "1set") return sets.length === 1 ? null : "Un partido a 1 set lleva un solo set";
+  if (sets.length === 1) return "Al mejor de 3 hacen falta al menos 2 sets. ¿Era a 1 set?";
   const a = sets.filter(([x, y]) => x > y).length;
-  if (a * 2 === sets.length) return "Los sets están empatados: falta el tercero";
+  if (a * 2 === sets.length) return "Los sets están empatados: falta el tercero (o márcalo como inacabado)";
   if (sets.length === 3) {
     const [s1, s2] = sets;
     if (s1[0] > s1[1] === s2[0] > s2[1]) return "Si alguien ganó los dos primeros sets, no hay tercero";
   }
   return null;
+}
+
+// ---------- Cara a cara ----------
+
+export type Duelo = {
+  partidos: Partido[]; // como rivales, del más antiguo al más reciente
+  ganaX: number;
+  ganaY: number;
+  racha: { quien: number; n: number } | null;
+  juntos: { jugados: number; ganados: number };
+  termometro: number; // 0-100
+};
+
+// Lo caliente que está un pique: muchos duelos, igualados y recientes.
+export function duelo(m: Mundo, est: Estadisticas, x: number, y: number): Duelo {
+  const rivales = (p: Partido) => p.b && ((p.a.includes(x) && p.b.includes(y)) || (p.a.includes(y) && p.b.includes(x)));
+  const partidos = est.partidos.filter(rivales);
+  let ganaX = 0;
+  let ganaY = 0;
+  let racha = null as Duelo["racha"];
+  let difJuegos = 0;
+  for (const p of partidos) {
+    const ganadores = ganador(p.sets) === "a" ? p.a : p.b!;
+    const quien = ganadores.includes(x) ? x : y;
+    if (quien === x) ganaX++;
+    else ganaY++;
+    racha = racha?.quien === quien ? { quien, n: racha.n + 1 } : { quien, n: 1 };
+    difJuegos += Math.abs(p.sets.reduce((s, [a, b]) => s + a - b, 0));
+  }
+  const juntos = est.parejas.find((p) => p.j1 === Math.min(x, y) && p.j2 === Math.max(x, y));
+  const n = partidos.length;
+  const recientes = partidos.filter((p) => diasEntre(p.fecha, m.hoy) <= 30).length;
+  const igualdad = n ? 1 - Math.min(Math.abs(ganaX - ganaY) / n + difJuegos / n / 16, 1) : 0;
+  const termometro = Math.round(Math.min(100, Math.min(n, 6) * 8 + igualdad * 32 + Math.min(recientes, 4) * 5));
+  return { partidos, ganaX, ganaY, racha, juntos: { jugados: juntos?.jugados ?? 0, ganados: juntos?.ganados ?? 0 }, termometro };
+}
+
+export function etiquetaTermometro(t: number) {
+  if (t >= 75) return "🌋 Volcán en erupción";
+  if (t >= 50) return "🔥 Caliente";
+  if (t >= 25) return "🌡️ Templado";
+  return "🧊 Frío";
+}
+
+// ---------- Torneo cruzado (americano) ----------
+
+// Generador pseudoaleatorio con semilla, para que el cuadro sea reproducible.
+function aleatorio(semilla: number) {
+  let s = semilla >>> 0 || 1;
+  return () => {
+    s ^= s << 13;
+    s ^= s >>> 17;
+    s ^= s << 5;
+    return (s >>> 0) / 4294967296;
+  };
+}
+
+// Rondas con parejas que rotan: se busca que nadie repita compañero y que los descansos se repartan.
+export function generarAmericano(jugadores: number[], juegos: number, semilla = 1, rondas?: number): Americano {
+  const rnd = aleatorio(semilla);
+  const n = jugadores.length;
+  const pistas = Math.floor(n / 4);
+  const total = rondas ?? (n % 4 === 0 ? n - 1 : n);
+  const companeros = new Map<string, number>();
+  const rivales = new Map<string, number>();
+  const descansos = new Map(jugadores.map((j) => [j, 0]));
+  const cuenta = (mapa: Map<string, number>, a: number, b: number) => mapa.get(clave(a, b)) ?? 0;
+  const out: Americano["rondas"] = [];
+
+  for (let r = 0; r < total; r++) {
+    const sobran = n - pistas * 4;
+    const orden = [...jugadores].sort((a, b) => descansos.get(a)! - descansos.get(b)! || rnd() - 0.5);
+    const descansan = orden.slice(0, sobran);
+    const juegan = jugadores.filter((j) => !descansan.includes(j));
+    let mejor: { coste: number; pistas: PistaAmericano[] } | null = null;
+    for (let intento = 0; intento < 400; intento++) {
+      const mezcla = [...juegan].sort(() => rnd() - 0.5);
+      let coste = 0;
+      const ps: PistaAmericano[] = [];
+      for (let k = 0; k < pistas; k++) {
+        const [p, q, t, u] = mezcla.slice(k * 4, k * 4 + 4);
+        const opciones: [[number, number], [number, number]][] = [[[p, q], [t, u]], [[p, t], [q, u]], [[p, u], [q, t]]];
+        let elegida = opciones[0];
+        let costeElegida = Infinity;
+        for (const [a, b] of opciones) {
+          const c = (cuenta(companeros, ...a) + cuenta(companeros, ...b)) * 10 +
+            a.reduce((s, x) => s + b.reduce((s2, y) => s2 + cuenta(rivales, x, y), 0), 0);
+          if (c < costeElegida) [elegida, costeElegida] = [[a, b], c];
+        }
+        coste += costeElegida;
+        ps.push({ a: elegida[0], b: elegida[1], ja: null, jb: null });
+      }
+      if (!mejor || coste < mejor.coste) mejor = { coste, pistas: ps };
+      if (coste === 0) break;
+    }
+    for (const p of mejor!.pistas) {
+      companeros.set(clave(...p.a), cuenta(companeros, ...p.a) + 1);
+      companeros.set(clave(...p.b), cuenta(companeros, ...p.b) + 1);
+      for (const x of p.a) for (const y of p.b) rivales.set(clave(x, y), cuenta(rivales, x, y) + 1);
+    }
+    for (const j of descansan) descansos.set(j, descansos.get(j)! + 1);
+    out.push({ pistas: mejor!.pistas, descansan });
+  }
+  return { jugadores: [...jugadores], juegos, rondas: out };
+}
+
+export type FilaAmericano = { id: number; juegosG: number; juegosP: number; ganados: number; jugados: number };
+
+export function clasificacionAmericano(t: Americano): FilaAmericano[] {
+  const filas = new Map(t.jugadores.map((id) => [id, { id, juegosG: 0, juegosP: 0, ganados: 0, jugados: 0 }]));
+  for (const r of t.rondas) {
+    for (const p of r.pistas) {
+      if (p.ja == null || p.jb == null) continue;
+      for (const [lado, mios, suyos] of [[p.a, p.ja, p.jb], [p.b, p.jb, p.ja]] as const) {
+        for (const id of lado) {
+          const f = filas.get(id)!;
+          f.juegosG += mios;
+          f.juegosP += suyos;
+          f.jugados++;
+          if (mios > suyos) f.ganados++;
+        }
+      }
+    }
+  }
+  return [...filas.values()].sort(
+    (x, y) => y.juegosG - x.juegosG || y.juegosG - y.juegosP - (x.juegosG - x.juegosP) || y.ganados - x.ganados,
+  );
 }

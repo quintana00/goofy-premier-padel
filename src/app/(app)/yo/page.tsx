@@ -44,7 +44,7 @@ export default async function Yo() {
           <span>→</span>
         </Link>
         <FormPin />
-        <FormTemporada actual={temporadaActual(m).nombre} />
+        <FormTemporada actual={temporadaActual(m).nombre} fin={temporadaActual(m).fin} hoy={m.hoy} />
       </div>
     </>
   );

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Alcance } from "@/components/Alcance";
 import { Avatar } from "@/components/Avatar";
 import { Escena } from "@/components/Escena";
+import { EscenaMedalla } from "@/components/EscenaMedalla";
+import { escenaDeMedalla } from "@/lib/escenasMedalla";
 import { alcance, cargarMundo } from "@/lib/datos";
 import { deudas, estadisticas, euros, medallas, mejoresParejas, relaciones } from "@/lib/motor";
 import { frase, tituloRelacion } from "@/lib/textos";
@@ -30,17 +32,32 @@ export default async function Piques({ searchParams }: PageProps<"/piques">) {
     acreedor = [...porPagador.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] ?? null;
   }
   const lista = medallas(m, est);
+  // Escenas de las medallas del pique (megáfono, Strava, llorón, reconciliación), una por pareja.
+  const vistos = new Set<string>();
+  const escenasMedallas = lista
+    .filter((md) => ["megafono", "strava", "lloron"].includes(md.clave) || md.clave.startsWith("reconciliacion-"))
+    .map((md) => ({ md, datos: escenaDeMedalla(m, md) }))
+    .filter((e): e is { md: typeof e.md; datos: NonNullable<typeof e.datos> } => {
+      if (!e.datos) return false;
+      const k = e.md.clave.startsWith("reconciliacion-") ? [e.md.jugadorId, e.md.clave.split("-")[1]].sort().join("-") : `${e.md.clave}-${e.md.jugadorId}`;
+      if (vistos.has(k)) return false;
+      vistos.add(k);
+      return true;
+    });
   // Duelos que aún no llegan al mínimo para salir como pique: para que la pestaña no esté vacía al principio.
   const enCamino = est.caras
     .filter((c) => c.jugados > 0 && c.jugados < 3)
     .sort((x, y) => y.jugados - x.jugados)
     .slice(0, 6);
-  const nada = rel.length === 0 && !parejas.mejor && !(enLlamas?.racha >= 3) && !(hundido?.racha <= -3) && !moroso;
+  const nada = rel.length === 0 && escenasMedallas.length === 0 && !parejas.mejor && !(enLlamas?.racha >= 3) && !(hundido?.racha <= -3) && !moroso;
 
   return (
     <>
       <div className="cabecera">
         <h1>Piques 🔥</h1>
+        <Link href="/vs" className="boton mini">
+          🥊 Cara a cara
+        </Link>
       </div>
       <Alcance m={m} ver={a.ver} ruta="/piques" />
 
@@ -74,12 +91,16 @@ export default async function Piques({ searchParams }: PageProps<"/piques">) {
 
         {enLlamas && enLlamas.racha >= 3 && (
           <Escena
-            tipo="fuego"
+            tipo="ego"
             y={jugadores.get(enLlamas.id)!}
-            titulo={`🔥 ${nom(enLlamas.id)} está on fire`}
-            texto={`${enLlamas.racha} victorias seguidas. Que alguien llame a los bomberos.`}
+            titulo={`🦚 A ${nom(enLlamas.id)} se le ha subido el ego`}
+            texto={`${enLlamas.racha} victorias seguidas. El globo ya no cabe en la pista.`}
           />
         )}
+
+        {escenasMedallas.map(({ md, datos }) => (
+          <EscenaMedalla key={`${md.clave}-${md.jugadorId}`} md={md} datos={datos} jugadores={jugadores} />
+        ))}
 
         {parejas.mejor && (
           <Escena
