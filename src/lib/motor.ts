@@ -410,12 +410,12 @@ export function medallas(m: Mundo, est: Estadisticas): Medalla[] {
   }
   for (const [id, n] of gritos) add("megafono", "📣", "Megáfono", `Pillado gritando a su pareja en ${n} partido${n > 1 ? "s" : ""}`, id);
 
-  // Modo Strava: el que más ha jugado en los últimos 7 días (mínimo 4).
+  // Modo Strava: el que más ha jugado en los últimos 7 días (mínimo 3).
   const semana = sumarDias(m.hoy, -6);
   const enSemana = new Map<number, number>();
   for (const p of partidosQueCuentan(m, semana)) for (const id of enPartido(p)) enSemana.set(id, (enSemana.get(id) ?? 0) + 1);
   const [stravero, nStrava] = [...enSemana.entries()].sort((a, b) => b[1] - a[1])[0] ?? [0, 0];
-  if (nStrava >= 4) add("strava", "🏊", "Modo Strava", `${nStrava} partidos esta semana. Esto ya hay que subirlo a Strava`, stravero);
+  if (nStrava >= 3) add("strava", "🏊", "Modo Strava", `${nStrava} partidos esta semana. Esto ya hay que subirlo a Strava`, stravero);
 
   // Pareja impuesta: quien más veces dice que la pareja se la impusieron.
   const impuestas = new Map<number, number>();
@@ -601,4 +601,58 @@ export function clasificacionAmericano(t: Americano): FilaAmericano[] {
   return [...filas.values()].sort(
     (x, y) => y.juegosG - x.juegosG || y.juegosG - y.juegosP - (x.juegosG - x.juegosP) || y.ganados - x.ganados,
   );
+}
+
+// ---------- Muro de la vergüenza ----------
+
+export type Verguenza = {
+  fecha: string;
+  emoji: string;
+  jugadorId: number;
+  texto: string;
+  partidoId?: number;
+};
+
+// Todo lo que nadie quiere que se recuerde, del más reciente al más antiguo.
+export function muroDeLaVerguenza(m: Mundo): Verguenza[] {
+  const out: Verguenza[] = [];
+  const porId = new Map(m.partidos.map((p) => [p.id, p]));
+  for (const e of m.eventos) {
+    if (e.tipo !== "intento_borrado") continue;
+    out.push({ fecha: e.creado.slice(0, 10), emoji: "🥹", jugadorId: e.jugadorId, texto: "intentó borrar un partido que había perdido", partidoId: e.partidoId ?? undefined });
+  }
+  for (const d of m.denuncias) {
+    const p = porId.get(d.partidoId);
+    if (!p) continue;
+    const v = veredicto(d, p).veredicto;
+    if (v === "limpio")
+      out.push({ fecha: d.creada.slice(0, 10), emoji: "😭", jugadorId: d.denunciante, texto: "denunció un amaño… y el tribunal dijo que fue limpio", partidoId: p.id });
+    if (v === "amano")
+      for (const id of ganador(p.sets) === "a" ? p.a : (p.b ?? []))
+        out.push({ fecha: d.creada.slice(0, 10), emoji: "🕵️", jugadorId: id, texto: "ganó un partido que el tribunal anuló por amaño", partidoId: p.id });
+  }
+  const votos = new Map<string, number>();
+  for (const v of m.megafonos) votos.set(`${v.partidoId}-${v.acusado}`, (votos.get(`${v.partidoId}-${v.acusado}`) ?? 0) + 1);
+  for (const [k, n] of votos) {
+    if (n < 2) continue;
+    const [pid, acusado] = k.split("-").map(Number);
+    const p = porId.get(pid);
+    if (p) out.push({ fecha: p.fecha, emoji: "📣", jugadorId: acusado, texto: `le gritó a su pareja (${n} testigos)`, partidoId: pid });
+  }
+  for (const p of m.partidos) {
+    if (p.impuestaPor && p.estado === "confirmado")
+      out.push({ fecha: p.fecha, emoji: "🙄", jugadorId: p.impuestaPor, texto: "dijo que la pareja se la impusieron", partidoId: p.id });
+    if (p.estado === "confirmado" && p.formato !== "inacabado") {
+      const perdedores = ganador(p.sets) === "a" ? (p.b ?? []) : p.a;
+      const [x, y] = p.sets.reduce(([a, b], [s1, s2]) => [a + s1, b + s2], [0, 0]);
+      const roscos = p.sets.filter(([a, b]) => Math.min(a, b) === 0 && Math.max(a, b) === 6).length;
+      if (roscos >= 2 || Math.abs(x - y) >= 10)
+        for (const id of perdedores)
+          out.push({ fecha: p.fecha, emoji: "🍩", jugadorId: id, texto: `se comió una paliza (${textoSets(p.sets, p.a.includes(id) ? "a" : "b")})`, partidoId: p.id });
+    }
+  }
+  for (const d of deudas(m))
+    if (d.debe > 0 && d.diasMax >= 14)
+      out.push({ fecha: m.hoy, emoji: "🎩", jugadorId: d.id, texto: `lleva ${d.diasMax} días sin pagar ${euros(d.debe)}` });
+  return out.sort((a, b) => b.fecha.localeCompare(a.fecha));
 }

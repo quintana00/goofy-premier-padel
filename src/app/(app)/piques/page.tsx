@@ -55,9 +55,14 @@ export default async function Piques({ searchParams }: PageProps<"/piques">) {
     <>
       <div className="cabecera">
         <h1>Piques 🔥</h1>
-        <Link href="/vs" className="boton mini">
-          🥊 Cara a cara
-        </Link>
+        <span className="fila" style={{ gap: 6 }}>
+          <Link href="/muro" className="boton secundario mini">
+            🧱 Muro
+          </Link>
+          <Link href="/vs" className="boton mini">
+            🥊 VS
+          </Link>
+        </span>
       </div>
       <Alcance m={m} ver={a.ver} ruta="/piques" />
 

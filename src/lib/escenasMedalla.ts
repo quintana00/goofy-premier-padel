@@ -19,7 +19,7 @@ export function escenaDeMedalla(m: Mundo, md: Medalla): EscenaMedalla | null {
   if (md.clave.startsWith("reconciliacion-")) {
     const otro = Number(md.clave.split("-")[1]);
     // Nada el que tenga pinta de nadador; el otro, a la terraza.
-    const nadaOtro = personaje(m.jugadores.find((j) => j.id === otro)?.nombre ?? "")?.accesorio === "natacion";
+    const nadaOtro = personaje(m.jugadores.find((j) => j.id === otro)?.nombre ?? "")?.accesorios?.includes("natacion");
     return nadaOtro ? { tipo: "guadalquivir", y: otro, x: y } : { tipo: "guadalquivir", y, x: otro };
   }
   if (md.clave === "megafono") {

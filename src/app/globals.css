@@ -896,3 +896,5 @@ details > summary::-webkit-details-marker {
 @keyframes crecer { from { transform: scaleY(0); } }
 @keyframes caer { from { transform: translateY(-180px); opacity: 0; } }
 .lado-juego { margin-left: 2px; font-size: 9px; font-weight: 900; color: var(--suave); }
+.escena .pie p.cita { margin-top: 8px; font-style: italic; color: #333; }
+.escena .pie p.cita span { font-style: normal; font-weight: 800; color: #666; white-space: nowrap; }

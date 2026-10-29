@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { headers } from "next/headers";
 import { Compartir } from "./Compartir";
 import { alcance, cargarMundo } from "@/lib/datos";
-import { euros } from "@/lib/motor";
+import { etiquetaTermometro, euros } from "@/lib/motor";
 import { resumenSemanal } from "@/lib/resumen";
 
 export default async function Resumen() {
@@ -20,6 +21,8 @@ export default async function Resumen() {
     r.hundido && `🚑 ${nom(r.hundido.id)} lleva ${-r.hundido.racha} derrotas seguidas`,
     r.enLlamas && `🔥 ${nom(r.enLlamas.id)} lleva ${r.enLlamas.racha} victorias seguidas`,
     r.moroso && `🎩 Moroso del mes: ${nom(r.moroso.id)} (${euros(r.moroso.debe)})`,
+    r.duelo && `🥊 Cara a cara de la semana: ${nom(r.duelo.x)} ${r.duelo.ganaX}-${r.duelo.ganaY} ${nom(r.duelo.y)} (${etiquetaTermometro(r.duelo.termometro)})`,
+    r.verguenzas > 0 && `🧱 ${r.verguenzas} entrada${r.verguenzas > 1 ? "s" : ""} nueva${r.verguenzas > 1 ? "s" : ""} en el Muro de la vergüenza`,
     `👉 ${url}`,
   ].filter(Boolean);
 
@@ -36,6 +39,16 @@ export default async function Resumen() {
         style={{ width: "100%", borderRadius: 18, border: "2px solid #000", boxShadow: "0 6px 0 #000", marginBottom: 16 }}
       />
       <Compartir texto={lineas.join("\n")} />
+      <div className="fila" style={{ marginTop: 12 }}>
+        {r.duelo && (
+          <Link href={`/vs?x=${r.duelo.x}&y=${r.duelo.y}`} className="boton secundario mini" style={{ flex: 1 }}>
+            🥊 Ver el cara a cara
+          </Link>
+        )}
+        <Link href="/muro" className="boton secundario mini" style={{ flex: 1 }}>
+          🧱 Muro de la vergüenza
+        </Link>
+      </div>
       <details className="tarjeta" style={{ marginTop: 16 }}>
         <summary>Ver el texto</summary>
         <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", margin: "12px 0 0" }}>{lineas.join("\n")}</pre>

@@ -38,7 +38,16 @@ Es una web que se instala como app en el móvil (iPhone: Safari → Compartir �
 
 La personalidad de cada uno (apodos, frase, accesorio en las escenas: IQOS, gafas de natación, boli de notario…) está en
 `src/lib/personajes.ts`, sacada del grupo de WhatsApp. Las escenas son SVG con animaciones CSS en
-`src/components/Escena.tsx`: cada cabezón lleva su accesorio automáticamente en todas las escenas.
+`src/components/Escena.tsx`: cada cabezón lleva su accesorio automáticamente en todas las escenas, y debajo sale una
+frase célebre del grupo que pega con la escena (ego, llorar, pareja, Strava…). Cambian cada día.
+
+Para sacar frases nuevas de una exportación del chat de WhatsApp:
+
+```bash
+node scripts/frases.mjs _chat.txt 26/10/26 > candidatas.tsv
+```
+
+Ordena los mensajes por cuántas risas provocaron. Se revisan a mano y se pasan a `src/lib/personajes.ts`.
 
 ## Publicarla (gratis, unos 10 minutos)
 

@@ -64,11 +64,20 @@ export default async function Jugador({ params, searchParams }: PageProps<"/juga
         <h1>{j.nombre}</h1>
         {perfil && (
           <div className="pila" style={{ gap: 4, justifyItems: "center" }}>
-            <span className="chapa rosa">aka {perfil.apodos.join(" · ")}</span>
+            {perfil.apodos.length > 0 && <span className="chapa rosa">aka {perfil.apodos.join(" · ")}</span>}
             <span className="suave pequeno" style={{ maxWidth: 380 }}>
               {perfil.bio}
             </span>
-            {perfil.frase && <i className="pequeno">«{perfil.mayusculas ? perfil.frase.toUpperCase() : perfil.frase}»</i>}
+            {perfil.frases.length > 0 && (
+              <details className="pequeno" style={{ textAlign: "left", width: "100%", maxWidth: 380 }}>
+                <summary style={{ textAlign: "center" }}>💬 Frases célebres ({perfil.frases.length})</summary>
+                <ul className="consejos" style={{ marginTop: 8 }}>
+                  {perfil.frases.map((f) => (
+                    <li key={f.texto}>«{perfil.mayusculas ? f.texto.toUpperCase() : f.texto}»</li>
+                  ))}
+                </ul>
+              </details>
+            )}
           </div>
         )}
         <div className="fila envolver" style={{ justifyContent: "center" }}>

@@ -4,19 +4,19 @@ import { Cabeza, Escena } from "@/components/Escena";
 import { TarjetaPartido } from "@/components/TarjetaPartido";
 import { cargarMundo, yo } from "@/lib/datos";
 import { duelo, estadisticas, etiquetaTermometro, relaciones } from "@/lib/motor";
-import { apodo, personaje } from "@/lib/personajes";
+import { apodo, frasePara, personaje } from "@/lib/personajes";
 import { frase, tituloRelacion } from "@/lib/textos";
 import type { Jugador } from "@/lib/tipos";
 
-function Luchador({ j, lado }: { j: Jugador; lado: "izq" | "der" }) {
-  const p = personaje(j.nombre);
+function Luchador({ j, lado, dia }: { j: Jugador; lado: "izq" | "der"; dia: string }) {
+  const mote = apodo(j.nombre, dia);
   return (
     <div className={`vs-lado ${lado}`}>
       <svg viewBox="-12 -12 150 140" width={130} height={122} role="img" aria-label={j.nombre}>
         <Cabeza j={j} cx={62} cy={62} r={56} id={`vs-${lado}-${j.id}`} />
       </svg>
       <b style={{ fontSize: 20 }}>{j.nombre}</b>
-      {p && <span className="chapa">{apodo(j.nombre)}</span>}
+      {mote && <span className="chapa">{mote}</span>}
     </div>
   );
 }
@@ -66,9 +66,9 @@ export default async function VS({ searchParams }: PageProps<"/vs">) {
   const rel = relaciones(est).find((r) => (r.x === x.id && r.y === y.id) || (r.x === y.id && r.y === x.id));
   const ultimo = d.partidos[d.partidos.length - 1];
   const reconciliados = d.partidos.length >= 2 && d.juntos.ganados > 0;
-  const nadaY = personaje(y.nombre)?.accesorio === "natacion";
-  const px = personaje(x.nombre);
-  const py = personaje(y.nombre);
+  const nadaY = personaje(y.nombre)?.accesorios?.includes("natacion");
+  const fx = frasePara(x.nombre, "pique", m.hoy);
+  const fy = frasePara(y.nombre, "pique", m.hoy);
 
   return (
     <>
@@ -81,9 +81,9 @@ export default async function VS({ searchParams }: PageProps<"/vs">) {
       {selector}
 
       <div key={`${x.id}-${y.id}`} className="vs-escenario choque" style={{ marginTop: 14 }}>
-        <Luchador j={x} lado="izq" />
+        <Luchador j={x} lado="izq" dia={m.hoy} />
         <span className="vs-letras">VS</span>
-        <Luchador j={y} lado="der" />
+        <Luchador j={y} lado="der" dia={m.hoy} />
       </div>
 
       <div className="seccion tarjeta pila">
@@ -123,16 +123,16 @@ export default async function VS({ searchParams }: PageProps<"/vs">) {
         </div>
       </div>
 
-      {(px?.frase || py?.frase) && (
+      {(fx || fy) && (
         <div className="seccion fila entre" style={{ alignItems: "stretch" }}>
-          {[x, y].map((j) => {
-            const p = personaje(j.nombre);
-            return (
-              <div key={j.id} className="tarjeta pequeno" style={{ flex: 1 }}>
-                <Avatar j={j} tam={26} /> <i>«{p?.mayusculas ? p.frase?.toUpperCase() : p?.frase ?? "…"}»</i>
-              </div>
-            );
-          })}
+          {[
+            [x, fx],
+            [y, fy],
+          ].map(([j, f]) => (
+            <div key={(j as Jugador).id} className="tarjeta pequeno" style={{ flex: 1 }}>
+              <Avatar j={j as Jugador} tam={26} /> <i>«{(f as string | null) ?? "…"}»</i>
+            </div>
+          ))}
         </div>
       )}
 

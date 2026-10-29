@@ -1,4 +1,4 @@
-import { deudas, estadisticas, ganador, relaciones, sumarDias, type Relacion } from "./motor";
+import { deudas, duelo, estadisticas, ganador, muroDeLaVerguenza, relaciones, sumarDias, type Relacion } from "./motor";
 import type { Mundo, Partido } from "./tipos";
 
 export type Resumen = {
@@ -13,6 +13,9 @@ export type Resumen = {
   hundido: { id: number; racha: number } | null;
   enLlamas: { id: number; racha: number } | null;
   pique: Relacion | null;
+  // El cara a cara de la semana: los dos rivales que más se han enfrentado estos 7 días.
+  duelo: { x: number; y: number; ganaX: number; ganaY: number; termometro: number } | null;
+  verguenzas: number;
 };
 
 // Lo más jugoso de los últimos 7 días, con la temporada en curso como referencia.
@@ -48,5 +51,28 @@ export function resumenSemanal(m: Mundo, desdeTemporada?: string): Resumen {
     hundido: hundido && hundido.racha <= -3 ? { id: hundido.id, racha: hundido.racha } : null,
     enLlamas: enLlamas && enLlamas.racha >= 3 ? { id: enLlamas.id, racha: enLlamas.racha } : null,
     pique: relaciones(estadisticas(m))[0] ?? null,
+    duelo: dueloDeLaSemana(m, semana),
+    verguenzas: muroDeLaVerguenza(m).filter((v) => v.fecha >= desde).length,
   };
+}
+
+function dueloDeLaSemana(m: Mundo, semana: Partido[]): Resumen["duelo"] {
+  const cuenta = new Map<string, { x: number; y: number; ganaX: number; ganaY: number }>();
+  for (const p of semana) {
+    if (!p.b) continue;
+    const ganadores = ganador(p.sets) === "a" ? p.a : p.b;
+    for (const a of p.a)
+      for (const b of p.b) {
+        const [x, y] = a < b ? [a, b] : [b, a];
+        const c = cuenta.get(`${x}-${y}`) ?? { x, y, ganaX: 0, ganaY: 0 };
+        if (ganadores.includes(x)) c.ganaX++;
+        else c.ganaY++;
+        cuenta.set(`${x}-${y}`, c);
+      }
+  }
+  const mejor = [...cuenta.values()]
+    .filter((c) => c.ganaX + c.ganaY >= 2)
+    .sort((a, b) => b.ganaX + b.ganaY - (a.ganaX + a.ganaY) || Math.abs(a.ganaX - a.ganaY) - Math.abs(b.ganaX - b.ganaY))[0];
+  if (!mejor) return null;
+  return { ...mejor, termometro: duelo(m, estadisticas(m), mejor.x, mejor.y).termometro };
 }

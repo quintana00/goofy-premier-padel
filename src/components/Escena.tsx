@@ -3,7 +3,24 @@
 import type { ReactNode } from "react";
 import type { Jugador } from "@/lib/tipos";
 import { colorDe, iniciales, urlAvatar } from "@/lib/avatar";
-import { personaje, type Accesorio } from "@/lib/personajes";
+import { frasePara, personaje, type Accesorio, type Tema } from "@/lib/personajes";
+
+// Quién habla en cada escena y de qué tema.
+const HABLA: Record<TipoEscena, ["x" | "y", Tema]> = {
+  biberon: ["x", "ego"],
+  perrito: ["x", "ego"],
+  beso: ["y", "pique"],
+  cobrador: ["y", "llorar"],
+  ambulancia: ["y", "derrota"],
+  fuego: ["y", "ego"],
+  trofeo: ["x", "victoria"],
+  lloron: ["y", "llorar"],
+  guadalquivir: ["y", "strava"],
+  nadar: ["y", "strava"],
+  ego: ["y", "ego"],
+  megafono: ["x", "pareja"],
+  cuchara: ["y", "derrota"],
+};
 
 export type TipoEscena =
   | "biberon"
@@ -76,7 +93,8 @@ export function Cabeza({
         </text>
       )}
       <circle cx={cx} cy={cy} r={r} fill="none" stroke={N} strokeWidth={4} />
-      {!sinAccesorio && <Complemento tipo={personaje(j.nombre)?.accesorio} cx={cx} cy={cy} r={r} id={clip} />}
+      {!sinAccesorio &&
+        personaje(j.nombre)?.accesorios?.map((a) => <Complemento key={a} tipo={a} cx={cx} cy={cy} r={r} id={clip} />)}
     </g>
   );
 }
@@ -126,6 +144,39 @@ function Complemento({ tipo, cx, cy, r, id }: { tipo?: Accesorio; cx: number; cy
           </g>
         ))}
       </g>
+    );
+  }
+  if (tipo === "gorrita") {
+    // La gorrita de Borja: copa recortada a la cabeza y visera.
+    return (
+      <g>
+        <clipPath id={`gorra-${id}`}>
+          <circle cx={cx} cy={cy} r={r - 2} />
+        </clipPath>
+        <rect x={cx - r} y={cy - r} width={r * 2} height={r * 0.55} fill="#1f2a5a" clipPath={`url(#gorra-${id})`} />
+        <path d={`M${cx - r * 0.95} ${cy - r * 0.45} L${cx + r * 0.95} ${cy - r * 0.45}`} stroke={N} strokeWidth={3} />
+        <circle cx={cx} cy={cy - r * 0.97} r={r * 0.08} fill="#1f2a5a" stroke={N} strokeWidth={2} />
+        <path
+          d={`M${cx - r * 0.2} ${cy - r * 0.47} Q${cx - r * 0.75} ${cy - r * 0.62} ${cx - r * 1.25} ${cy - r * 0.38} L${cx - r * 0.2} ${cy - r * 0.38} Z`}
+          fill="#2b3a8c"
+          stroke={N}
+          strokeWidth={3}
+          strokeLinejoin="round"
+        />
+      </g>
+    );
+  }
+  if (tipo === "bigote") {
+    // Los bigotes de Brotons.
+    const y = cy + r * 0.3;
+    return (
+      <path
+        d={`M${cx} ${y - r * 0.04} q${-r * 0.18} ${-r * 0.16} ${-r * 0.36} ${-r * 0.02} q${-r * 0.1} ${r * 0.1} ${-r * 0.2} ${r * 0.02} q${r * 0.12} ${r * 0.2} ${r * 0.56} ${r * 0.06} q${r * 0.44} ${r * 0.14} ${r * 0.56} ${-r * 0.06} q${-r * 0.1} ${r * 0.08} ${-r * 0.2} ${-r * 0.02} q${-r * 0.18} ${-r * 0.14} ${-r * 0.36} ${r * 0.02} Z`}
+        fill="#3b2412"
+        stroke={N}
+        strokeWidth={2}
+        strokeLinejoin="round"
+      />
     );
   }
   if (tipo === "boli") {
@@ -699,15 +750,22 @@ export function Escena({
   texto,
   extra,
   frase,
+  cita = true,
 }: {
   tipo: TipoEscena;
   frase?: string;
+  cita?: boolean; // frase célebre del grupo debajo de la escena
+
   x?: Jugador | null;
   y: Jugador;
   titulo: ReactNode;
   texto?: ReactNode;
   extra?: ReactNode;
 }) {
+  const [rol, tema] = HABLA[tipo];
+  const hablante = rol === "x" ? (x ?? y) : y;
+  const textoCita = cita && hablante ? frasePara(hablante.nombre, tema, new Date().toISOString().slice(0, 10)) : null;
+  const citado = textoCita ? { texto: textoCita, quien: hablante!.nombre } : null;
   let dibujo: ReactNode;
   switch (tipo) {
     case "biberon":
@@ -758,6 +816,11 @@ export function Escena({
       <figcaption className="pie">
         <strong>{titulo}</strong>
         {texto && <p>{texto}</p>}
+        {citado && (
+          <p className="cita">
+            💬 «{citado.texto}» <span>— {citado.quien}</span>
+          </p>
+        )}
         {extra}
       </figcaption>
     </figure>

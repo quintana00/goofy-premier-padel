@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   clasificacionAmericano, confirmadores, deudas, duelo, estadisticas, generarAmericano, medallas, peorPesadilla,
-  relaciones, repartir, setsValidos, veredicto,
+  muroDeLaVerguenza, relaciones, repartir, setsValidos, veredicto,
 } from "./motor";
 import type { Mundo, Partido } from "./tipos";
 
@@ -172,6 +172,7 @@ describe("duelo y medallas del pique", () => {
     expect(quien("lloron")).toEqual([4]);
     expect(quien("ego")).toEqual([1]);
     expect(quien("strava")).toHaveLength(1);
+    expect(muroDeLaVerguenza(m).map((v) => v.emoji).filter((e) => e !== "🍩").sort()).toEqual(["📣", "🙄", "🙄", "🥹"]);
     expect(quien("impuesta")).toEqual([2]);
     expect(quien("reconciliacion")).toEqual([1, 2]);
   });

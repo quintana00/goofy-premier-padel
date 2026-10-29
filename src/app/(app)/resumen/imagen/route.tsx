@@ -3,7 +3,7 @@ import { ImageResponse } from "next/og";
 import { colorDe, iniciales } from "@/lib/avatar";
 import { db } from "@/lib/db";
 import { alcance, cargarMundo } from "@/lib/datos";
-import { estadisticas, euros, textoSets } from "@/lib/motor";
+import { estadisticas, etiquetaTermometro, euros, textoSets } from "@/lib/motor";
 import { resumenSemanal } from "@/lib/resumen";
 
 // Imagen vertical para mandar al grupo de WhatsApp.
@@ -91,14 +91,30 @@ export async function GET() {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {datos.slice(0, 3)}
+        {datos.slice(0, r.duelo ? 2 : 3)}
       </div>
 
-      {r.paliza && (
-        <div style={{ display: "flex", fontSize: 28, color: "#a8b3dc" }}>
-          🔨 Paliza de la semana: {r.paliza.partido.a.map(nom).join(" y ")} vs{" "}
-          {r.paliza.partido.b ? r.paliza.partido.b.map(nom).join(" y ") : r.paliza.partido.bExterna} ({textoSets(r.paliza.partido.sets)})
+      {r.duelo ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 20, background: "#5a1340", borderRadius: 28, padding: "16px 24px", border: "4px solid #ff5fa2" }}>
+          <Cara id={r.duelo.x} tam={84} />
+          <div style={{ display: "flex", flexDirection: "column", flex: 1, alignItems: "center" }}>
+            <div style={{ display: "flex", fontSize: 26, color: "#ffb3d4", fontWeight: 700 }}>🥊 Cara a cara de la semana</div>
+            <div style={{ display: "flex", fontSize: 54, fontWeight: 900 }}>
+              {r.duelo.ganaX} - {r.duelo.ganaY}
+            </div>
+            <div style={{ display: "flex", fontSize: 24, color: "#ffb3d4" }}>
+              {nom(r.duelo.x)} vs {nom(r.duelo.y)} · {etiquetaTermometro(r.duelo.termometro)}
+            </div>
+          </div>
+          <Cara id={r.duelo.y} tam={84} />
         </div>
+      ) : (
+        r.paliza && (
+          <div style={{ display: "flex", fontSize: 28, color: "#a8b3dc" }}>
+            🔨 Paliza de la semana: {r.paliza.partido.a.map(nom).join(" y ")} vs{" "}
+            {r.paliza.partido.b ? r.paliza.partido.b.map(nom).join(" y ") : r.paliza.partido.bExterna} ({textoSets(r.paliza.partido.sets)})
+          </div>
+        )
       )}
     </div>
   );
@@ -118,7 +134,7 @@ export async function GET() {
 const EMOJI = /[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu;
 
 function sinEmojis(n: ReactNode): ReactNode {
-  if (typeof n === "string") return n.replace(EMOJI, "").trim();
+  if (typeof n === "string") return n.replace(EMOJI, "").replace(/ {2,}/g, " ");
   if (Array.isArray(n)) return n.map(sinEmojis);
   if (!isValidElement(n)) return n;
   const props = n.props as Record<string, unknown>;
