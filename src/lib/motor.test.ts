@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  clasificacionAmericano, confirmadores, deudas, duelo, estadisticas, generarAmericano, medallas, peorPesadilla,
+  clasificacionAmericano, confirmadores, defensores, enActa, enPlazo, deudas, duelo, estadisticas, generarAmericano, medallas, peorPesadilla,
   muroDeLaVerguenza, relaciones, repartir, setsValidos, veredicto,
 } from "./motor";
 import type { Mundo, Partido } from "./tipos";
@@ -9,7 +9,7 @@ let n = 0;
 const partido = (a: [number, number], b: [number, number] | null, sets: [number, number][], extra: Partial<Partido> = {}): Partido => ({
   id: ++n, fecha: `2026-10-${String(n).padStart(2, "0")}`, creado: "2026-10-01T10:00:00Z", a, b, bExterna: b ? null : "Los de Elche",
   sets, estado: "confirmado", creadoPor: a[0], confirmadoPor: null, torneoId: null,
-  formato: sets.length === 1 ? "1set" : "mejor3", aDerecha: null, bDerecha: null, impuestaPor: null, ...extra,
+  formato: sets.length === 1 ? "1set" : "mejor3", aDerecha: null, bDerecha: null, impuestaPor: null, reclamacion: null, ...extra,
 });
 
 const mundo = (partidos: Partido[], extra: Partial<Mundo> = {}): Mundo => ({
@@ -203,5 +203,20 @@ describe("torneo cruzado", () => {
     const c = clasificacionAmericano(t);
     expect(c[0].juegosG).toBe(10);
     expect(t.rondas[0].pistas[0].a).toContain(c[0].id);
+  });
+});
+
+describe("plazo para reclamar", () => {
+  it("se puede reclamar 48 h y luego queda en acta", () => {
+    const p = partido([1, 2], [3, 4], [[6, 1], [6, 1]], { creado: "2026-11-01T10:00:00Z" });
+    expect(enPlazo(p, Date.parse("2026-11-03T09:59:00Z"))).toBe(true);
+    expect(enActa(p, Date.parse("2026-11-03T10:01:00Z"))).toBe(true);
+    expect(defensores(p)).toEqual([1, 2]);
+    expect(confirmadores(p)).toEqual([3, 4]);
+  });
+
+  it("un partido reclamado no cuenta", () => {
+    const est = estadisticas(mundo([partido([1, 2], [3, 4], [[6, 1], [6, 1]], { estado: "reclamado" })]));
+    expect(est.fichas.get(1)!.jugados).toBe(0);
   });
 });

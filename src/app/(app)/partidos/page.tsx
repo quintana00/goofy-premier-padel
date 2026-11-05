@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { TarjetaPartido } from "@/components/TarjetaPartido";
 import { cargarMundo, yo } from "@/lib/datos";
-import { confirmadores, partidosAnulados, veredicto } from "@/lib/motor";
+import { defensores, partidosAnulados, veredicto } from "@/lib/motor";
 
 export default async function Partidos() {
   const [m, me] = await Promise.all([cargarMundo(), yo()]);
@@ -9,7 +9,7 @@ export default async function Partidos() {
   const anulados = partidosAnulados(m);
   const denuncias = new Map(m.denuncias.map((d) => [d.partidoId, d]));
   const orden = [...m.partidos].sort((x, y) => y.fecha.localeCompare(x.fecha) || y.id - x.id);
-  const pendientes = orden.filter((p) => p.estado === "pendiente");
+  const reclamados = orden.filter((p) => p.estado === "reclamado");
   const jugados = orden.filter((p) => p.estado === "confirmado");
 
   return (
@@ -21,21 +21,17 @@ export default async function Partidos() {
         </Link>
       </div>
 
-      {pendientes.length > 0 && (
+      {reclamados.length > 0 && (
         <div className="seccion" style={{ marginTop: 0 }}>
-          <h2>⏳ Esperando confirmación</h2>
+          <h2>⚠️ Reclamados (no cuentan)</h2>
           <div className="pila">
-            {pendientes.map((p) => (
+            {reclamados.map((p) => (
               <TarjetaPartido
                 key={p.id}
                 p={p}
                 jugadores={jugadores}
                 etiqueta={
-                  confirmadores(p).includes(me.id) ? (
-                    <span className="chapa naranja">¡Te toca confirmar!</span>
-                  ) : (
-                    <span className="chapa">Pendiente</span>
-                  )
+                  defensores(p).includes(me.id) ? <span className="chapa naranja">¡Te toca resolverlo!</span> : null
                 }
               />
             ))}

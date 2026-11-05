@@ -49,6 +49,15 @@ export const cargarMundo = cache(async (): Promise<Mundo> => {
         aDerecha: p.a_derecha,
         bDerecha: p.b_derecha,
         impuestaPor: p.impuesta_por,
+        reclamacion: p.reclamado_por
+          ? {
+              por: p.reclamado_por,
+              motivo: p.reclamacion_motivo ?? "",
+              sets: p.reclamacion_sets,
+              formato: p.reclamacion_formato,
+              en: iso(p.reclamado_en)!,
+            }
+          : null,
       }),
     ),
     denuncias: denuncias.map((d) => ({

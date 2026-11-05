@@ -4,8 +4,8 @@ export const metadata = { title: "Reglas · Goofy Premier Padel" };
 
 const REGLAS: { t: string; d: React.ReactNode }[] = [
   {
-    t: "📜 Todo partido confirmado queda en acta",
-    d: "Lo apunta un jugador y lo confirma alguien de la pareja rival. Desde ese momento no se borra ni se edita. Si alguien intenta borrar uno que ha perdido, queda en el historial (y se lleva la medalla de Llorón). Si de verdad algo está mal, se lleva al tribunal.",
+    t: "📜 Cuenta al momento; 48 horas para reclamar",
+    d: "Un resultado cuenta en cuanto se apunta: nadie tiene que aceptarlo. Durante 48 horas la pareja rival puede reclamarlo diciendo cuál fue el resultado bueno (o que no se jugó). Mientras está reclamado no cuenta: la pareja que lo apuntó acepta la corrección o mantiene el suyo, y entonces decide el tribunal. Pasadas las 48 horas queda en acta: ya no se borra ni se cambia, e intentar borrar uno perdido da la medalla de Llorón.",
   },
   {
     t: "🎾 Formatos",

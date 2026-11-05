@@ -8,7 +8,7 @@ Es una web que se instala como app en el móvil (iPhone: Safari → Compartir �
 ## Qué hace
 
 - **Ranking ELO** por temporadas y histórico. Todos empiezan con 1000; ganar a los buenos da más puntos y las palizas cuentan algo más.
-- **Resultados con sets** y **confirmación del rival**: un partido no cuenta hasta que alguien de la otra pareja lo confirma.
+- **Resultados con sets** que cuentan nada más apuntarlos. La pareja rival tiene **48 horas para reclamar** si está mal; mientras tanto no cuenta, y lo resuelve la pareja que lo apuntó (acepta la corrección o va al tribunal).
 - **Torneos**: cada pareja apunta cómo quedó y sus partidos, también contra parejas de fuera.
 - **Piques** con escenas animadas usando la cara de cada uno:
   - 🍼 *X tiene de hijo a Y* (le gana el 70 % o más, mínimo 3 duelos)
@@ -25,7 +25,7 @@ Es una web que se instala como app en el móvil (iPhone: Safari → Compartir �
 
 ## Novedades del pique Fran vs Borja
 
-- **Partidos en acta**: confirmado = sellado. No se borra; intentarlo con uno perdido queda en el historial y da la medalla de Llorón.
+- **Partidos en acta**: pasadas las 48 horas, sellado. No se borra; intentarlo con uno perdido queda en el historial y da la medalla de Llorón.
 - **Formatos**: 1 set, mejor de 3 o inacabado (suma juegos y sets, pero ni victoria ni derrota). Todo explicado en `/reglas`.
 - **Derecha / revés**: cada partido guarda quién iba a la derecha y el perfil saca los números por lado.
 - **Temporadas** con fecha de fin, archivo en `/temporadas` y ceremonia con podio, confeti y cuchara de madera.

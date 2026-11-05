@@ -4,7 +4,7 @@ import { RankingAnimado } from "@/components/Animaciones";
 import { Avatar } from "@/components/Avatar";
 import { Marca } from "@/components/Marca";
 import { alcance, cargarMundo, yo } from "@/lib/datos";
-import { confirmadores, deudas, diasEntre, euros, estadisticas, type Ficha } from "@/lib/motor";
+import { confirmadores, defensores, deudas, diasEntre, enPlazo, euros, estadisticas, textoSets, type Ficha } from "@/lib/motor";
 
 function Racha({ f }: { f: Ficha }) {
   if (f.racha >= 3) return <span className="chapa verde">🦚 {f.racha} seguidas</span>;
@@ -21,7 +21,13 @@ export default async function Ranking({ searchParams }: PageProps<"/">) {
   const jugadores = new Map(m.jugadores.map((j) => [j.id, j]));
   const conPartidos = est.ranking.filter((f) => f.jugados > 0);
   const sinEstrenar = est.ranking.filter((f) => f.jugados === 0);
-  const porConfirmar = m.partidos.filter((p) => p.estado === "pendiente" && confirmadores(p).includes(me.id));
+  // Reclamaciones que tiene que resolver mi pareja, y partidos recién apuntados contra mí (por si están mal).
+  const porResolver = m.partidos.filter((p) => p.estado === "reclamado" && defensores(p).includes(me.id));
+  const contraMi = m.partidos
+    .filter((p) => enPlazo(p) && p.creadoPor !== me.id && confirmadores(p).includes(me.id))
+    .sort((x, y) => y.id - x.id)
+    .slice(0, 2);
+  const nombreDe = (id: number) => m.jugadores.find((j) => j.id === id)?.nombre ?? "?";
   const miDeuda = deudas(m).find((d) => d.id === me.id);
   const temporada = m.temporadas.find((t) => String(t.id) === a.ver);
   const terminada = temporada && (temporada.fin ? temporada.fin < m.hoy : Boolean(a.hasta));
@@ -39,16 +45,28 @@ export default async function Ranking({ searchParams }: PageProps<"/">) {
       </div>
 
       <div className="pila" style={{ marginBottom: 16 }}>
-        {porConfirmar.length > 0 && (
-          <Link href={`/partidos/${porConfirmar[0].id}`} className="tarjeta alerta fila entre">
+        {porResolver.length > 0 && (
+          <Link href={`/partidos/${porResolver[0].id}`} className="tarjeta peligro fila entre">
             <span>
-              <b>⏳ Tienes {porConfirmar.length} resultado{porConfirmar.length > 1 ? "s" : ""} por confirmar</b>
+              <b>⚠️ Te han reclamado {porResolver.length} resultado{porResolver.length > 1 ? "s" : ""}</b>
               <br />
-              <span className="suave pequeno">Sin tu OK no cuenta para el ranking</span>
+              <span className="suave pequeno">No cuenta hasta que aceptes la corrección o lo mandes al tribunal</span>
             </span>
             <span>→</span>
           </Link>
         )}
+        {contraMi.map((p) => (
+          <Link key={p.id} href={`/partidos/${p.id}`} className="tarjeta alerta fila entre">
+            <span>
+              <b>
+                📝 {nombreDe(p.creadoPor)} apuntó {textoSets(p.sets, p.a.includes(me.id) ? "a" : "b")} contra ti
+              </b>
+              <br />
+              <span className="suave pequeno">Ya cuenta. Si está mal, tienes 48 h para reclamarlo</span>
+            </span>
+            <span>→</span>
+          </Link>
+        ))}
         {miDeuda && miDeuda.debe > 0 && (
           <Link href="/deudas" className="tarjeta peligro fila entre">
             <span>

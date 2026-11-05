@@ -7,9 +7,9 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { cargarMundo, hoyMadrid, temporadaActual, yo } from "@/lib/datos";
-import { PUESTOS, confirmadores, enPartido, ganador, generarAmericano, repartir, setsValidos } from "@/lib/motor";
+import { PUESTOS, confirmadores, defensores, enPartido, enPlazo, ganador, generarAmericano, repartir, setsValidos } from "@/lib/motor";
 import { COOKIE_GRUPO, COOKIE_SESION, UN_ANO, codigoGrupo, valorGrupo, valorSesion } from "@/lib/sesion";
-import type { Marcador } from "@/lib/tipos";
+import type { Formato, Marcador } from "@/lib/tipos";
 
 export type Estado = { error?: string; ok?: string } | null;
 
@@ -217,16 +217,14 @@ export async function nuevoPartido(_: Estado, fd: FormData): Promise<Estado> {
     const p = {
       a: [datos.a1, datos.a2] as [number, number],
       b: externa ? null : ([datos.b1!, datos.b2!] as [number, number]),
-      creadoPor: me.id,
     };
-    // Si nadie puede confirmarlo (p. ej. lo apunta uno solo contra gente de fuera), vale directamente.
-    const autoconfirmado = confirmadores(p).length === 0;
+    // Cuenta nada más apuntarlo: los rivales tienen 48 h para reclamarlo si está mal.
     const sql = await db();
     [{ id }] = await sql`
       insert into partidos (fecha, a1, a2, b1, b2, b_externa, sets, estado, creado_por, torneo_id,
                             formato, a_derecha, b_derecha, impuesta_por)
       values (${datos.fecha}, ${datos.a1}, ${datos.a2}, ${p.b?.[0] ?? null}, ${p.b?.[1] ?? null},
-              ${externa ? datos.bExterna : null}, ${sql.json(sets)}, ${autoconfirmado ? "confirmado" : "pendiente"},
+              ${externa ? datos.bExterna : null}, ${sql.json(sets)}, 'confirmado',
               ${me.id}, ${datos.torneoId}, ${datos.formato}, ${datos.aDerecha}, ${externa ? null : datos.bDerecha},
               ${impuestaPor})
       returning id`;
@@ -242,6 +240,7 @@ export async function intentarBorrar(_: Estado, fd: FormData): Promise<Estado> {
   const me = await yo();
   const p = await partidoPara(Number(fd.get("id")));
   if (p.estado !== "confirmado") return { error: "Este partido no está en acta" };
+  if (enPlazo(p)) return { error: "Aún está en plazo: si está mal, reclámalo y que lo corrijan" };
   const perdedores: number[] = ganador(p.sets) === "a" ? (p.b ?? []) : p.a;
   const perdio = p.formato !== "inacabado" && perdedores.includes(me.id);
   if (perdio) {
@@ -279,23 +278,92 @@ async function partidoPara(id: number) {
   return p;
 }
 
-export async function confirmarPartido(fd: FormData) {
+// El que lo apuntó puede borrarlo mientras esté en plazo, por si se equivocó.
+export async function borrarMiPartido(fd: FormData) {
   const me = await yo();
   const p = await partidoPara(Number(fd.get("id")));
-  if (p.estado !== "pendiente" || !confirmadores(p).includes(me.id)) return;
+  if (p.creadoPor !== me.id || !(enPlazo(p) || p.estado === "reclamado")) return;
   const sql = await db();
-  await sql`update partidos set estado = 'confirmado', confirmado_por = ${me.id} where id = ${p.id} and estado = 'pendiente'`;
+  await sql`update partidos set estado = 'rechazado' where id = ${p.id}`;
+  refrescar();
+  redirect("/partidos");
+}
+
+const limpiarReclamacion = /* sql */ `reclamado_por = null, reclamacion_motivo = null, reclamacion_sets = null,
+  reclamacion_formato = null, reclamado_en = null`;
+
+// Un rival dice que el resultado está mal: cuál fue de verdad (o que no se jugó). Mientras tanto, no cuenta.
+export async function reclamar(_: Estado, fd: FormData): Promise<Estado> {
+  try {
+    const me = await yo();
+    const p = await partidoPara(Number(fd.get("id")));
+    if (!confirmadores(p).includes(me.id)) return { error: "Solo puede reclamar la pareja rival" };
+    if (!enPlazo(p)) return { error: "Ya ha pasado el plazo: el partido está en acta. Si hubo trampa, al tribunal" };
+    const motivo = z.string().trim().min(3, "Cuenta qué está mal").max(300).parse(fd.get("motivo"));
+    const noSeJugo = fd.get("noSeJugo") === "si";
+    let sets: Marcador[] | null = null;
+    let formato: Formato | null = null;
+    if (!noSeJugo) {
+      formato = z.enum(["1set", "mejor3", "inacabado"]).parse(fd.get("formato"));
+      sets = z.array(z.tuple([z.number().int(), z.number().int()])).parse(JSON.parse(String(fd.get("sets") ?? "[]"))) as Marcador[];
+      const err = setsValidos(sets, formato);
+      if (err) return { error: err };
+    }
+    const sql = await db();
+    await sql`update partidos set estado = 'reclamado', reclamado_por = ${me.id}, reclamacion_motivo = ${motivo},
+              reclamacion_sets = ${sets ? sql.json(sets) : null}, reclamacion_formato = ${formato}, reclamado_en = now()
+              where id = ${p.id} and estado = 'confirmado'`;
+  } catch (e) {
+    return fallo(e);
+  }
+  refrescar();
+  return { ok: "Reclamado. El partido no cuenta hasta que se resuelva" };
+}
+
+// La pareja que lo apuntó acepta la corrección: se queda el resultado del que reclamó (o se borra si no se jugó).
+export async function aceptarReclamacion(fd: FormData) {
+  const me = await yo();
+  const p = await partidoPara(Number(fd.get("id")));
+  if (p.estado !== "reclamado" || !p.reclamacion || !defensores(p).includes(me.id)) return;
+  const sql = await db();
+  if (!p.reclamacion.sets) {
+    await sql`update partidos set estado = 'rechazado' where id = ${p.id}`;
+    refrescar();
+    redirect("/partidos");
+  }
+  await sql.unsafe(
+    `update partidos set estado = 'confirmado', sets = reclamacion_sets, formato = reclamacion_formato,
+     confirmado_por = $1, ${limpiarReclamacion} where id = $2`,
+    [me.id, p.id],
+  );
   refrescar();
 }
 
-export async function rechazarPartido(fd: FormData) {
+// La pareja que lo apuntó mantiene su resultado: vuelve a contar y decide el tribunal.
+export async function mantenerResultado(fd: FormData) {
   const me = await yo();
   const p = await partidoPara(Number(fd.get("id")));
-  if (p.estado !== "pendiente" || (!confirmadores(p).includes(me.id) && p.creadoPor !== me.id)) return;
+  if (p.estado !== "reclamado" || !p.reclamacion || !defensores(p).includes(me.id)) return;
+  const r = p.reclamacion;
+  const dice = r.sets ? `dice que fue ${r.sets.map(([x, y]) => `${x}-${y}`).join(" ")}` : "dice que no se jugó";
   const sql = await db();
-  await sql`update partidos set estado = 'rechazado', confirmado_por = ${me.id} where id = ${p.id}`;
+  await sql.begin(async (tx) => {
+    await tx.unsafe(`update partidos set estado = 'confirmado', ${limpiarReclamacion} where id = $1`, [p.id]);
+    await tx`insert into denuncias (partido_id, denunciante, motivo)
+             values (${p.id}, ${r.por}, ${`Reclamó el resultado (${dice}): ${r.motivo}`.slice(0, 400)})
+             on conflict (partido_id) do nothing`;
+  });
   refrescar();
-  redirect("/partidos");
+}
+
+// El que reclamó se echa atrás: el resultado vuelve a contar tal cual.
+export async function retirarReclamacion(fd: FormData) {
+  const me = await yo();
+  const p = await partidoPara(Number(fd.get("id")));
+  if (p.estado !== "reclamado" || p.reclamacion?.por !== me.id) return;
+  const sql = await db();
+  await sql.unsafe(`update partidos set estado = 'confirmado', ${limpiarReclamacion} where id = $1`, [p.id]);
+  refrescar();
 }
 
 export async function denunciar(_: Estado, fd: FormData): Promise<Estado> {

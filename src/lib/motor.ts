@@ -24,8 +24,30 @@ export function enPartido(p: Pick<Partido, "a" | "b">): number[] {
   return [...p.a, ...(p.b ?? [])];
 }
 
-// Quién puede confirmar un resultado: los rivales del que lo apunta.
-// Si los rivales son de fuera, su compañero. Si no queda nadie, se da por bueno.
+// Horas que tienen los rivales para reclamar un resultado. Pasado ese tiempo, queda en acta.
+export const HORAS_RECLAMAR = 48;
+
+export function reclamableHasta(p: Pick<Partido, "creado">) {
+  return new Date(Date.parse(p.creado) + HORAS_RECLAMAR * 3_600_000).toISOString();
+}
+
+export function enPlazo(p: Pick<Partido, "creado" | "estado">, ahora = Date.now()) {
+  return p.estado === "confirmado" && Date.parse(reclamableHasta(p)) > ahora;
+}
+
+// En acta: confirmado y fuera de plazo. Ya no se puede ni reclamar ni borrar.
+export function enActa(p: Pick<Partido, "creado" | "estado">, ahora = Date.now()) {
+  return p.estado === "confirmado" && !enPlazo(p, ahora);
+}
+
+// Los que defienden el resultado: la pareja del que lo apuntó.
+export function defensores(p: Pick<Partido, "a" | "b" | "creadoPor">): number[] {
+  const lado = p.a.includes(p.creadoPor) ? p.a : p.b?.includes(p.creadoPor) ? p.b : null;
+  return lado ? [...lado] : [p.creadoPor];
+}
+
+// Quién puede reclamar un resultado: los rivales del que lo apunta.
+// Si los rivales son de fuera, su compañero.
 export function confirmadores(p: Pick<Partido, "a" | "b" | "creadoPor">): number[] {
   const ladoCreador = p.a.includes(p.creadoPor) ? "a" : p.b?.includes(p.creadoPor) ? "b" : null;
   if (!ladoCreador) return enPartido(p).filter((id) => id !== p.creadoPor);

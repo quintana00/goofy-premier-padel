@@ -6,7 +6,16 @@ export type Jugador = {
 
 export type Marcador = [number, number]; // [juegos pareja A, juegos pareja B]
 
-export type EstadoPartido = "pendiente" | "confirmado" | "rechazado";
+// "pendiente" ya no se usa: los resultados cuentan nada más apuntarse y los rivales tienen 48 h para reclamarlos.
+export type EstadoPartido = "pendiente" | "confirmado" | "reclamado" | "rechazado";
+
+export type Reclamacion = {
+  por: number;
+  motivo: string;
+  sets: Marcador[] | null; // el resultado que dice el que reclama; null = "no se jugó"
+  formato: Formato | null;
+  en: string;
+};
 
 // "inacabado": se guarda el marcador (cuenta para juegos y sets) pero no da victoria ni derrota.
 export type Formato = "1set" | "mejor3" | "inacabado";
@@ -29,6 +38,7 @@ export type Partido = {
   aDerecha: number | null;
   bDerecha: number | null;
   impuestaPor: number | null; // quien dice que la pareja se la impusieron 🙄
+  reclamacion: Reclamacion | null;
 };
 
 export type Denuncia = {

@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { confirmarPartido, rechazarPartido, votar, votarMegafono } from "@/app/acciones";
+import { aceptarReclamacion, borrarMiPartido, mantenerResultado, retirarReclamacion, votar, votarMegafono } from "@/app/acciones";
 import { BotonBorrar, Reaccion, SelloActa } from "@/components/Animaciones";
 import { Avatar } from "@/components/Avatar";
 import { Escena } from "@/components/Escena";
 import { TarjetaPartido } from "@/components/TarjetaPartido";
 import { cargarMundo, yo } from "@/lib/datos";
-import { confirmadores, enPartido, estadisticas, ganador, veredicto } from "@/lib/motor";
+import { confirmadores, defensores, enActa, enPartido, enPlazo, estadisticas, ganador, reclamableHasta, textoSets, veredicto } from "@/lib/motor";
 import { Denunciar } from "./Denunciar";
+import { Reclamar } from "./Reclamar";
 
 export default async function DetallePartido({ params, searchParams }: PageProps<"/partidos/[id]">) {
   const [{ id }, { nuevo }] = await Promise.all([params, searchParams]);
@@ -17,7 +18,16 @@ export default async function DetallePartido({ params, searchParams }: PageProps
   const jugadores = new Map(m.jugadores.map((j) => [j.id, j]));
   const nombre = (jid: number | null) => (jid ? (jugadores.get(jid)?.nombre ?? "?") : "");
   const quienes = confirmadores(p);
-  const puedoConfirmar = p.estado === "pendiente" && quienes.includes(me.id);
+  const plazo = enPlazo(p);
+  const acta = enActa(p);
+  const hasta = new Date(reclamableHasta(p)).toLocaleString("es-ES", {
+    weekday: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Madrid",
+  });
+  const rec = p.reclamacion;
   const denuncia = m.denuncias.find((d) => d.partidoId === p.id);
   const v = denuncia ? veredicto(denuncia, p) : null;
   const juego = enPartido(p).includes(me.id);
@@ -40,43 +50,81 @@ export default async function DetallePartido({ params, searchParams }: PageProps
         </Link>
       </div>
 
-      {nuevo && p.estado === "pendiente" && (
+      {nuevo && plazo && (
         <div className="tarjeta alerta" style={{ marginBottom: 12 }}>
-          ✅ Apuntado. Ahora {quienes.map(nombre).join(" o ")} tiene{quienes.length > 1 ? "n" : ""} que confirmarlo.
-          Pásales el enlace por WhatsApp si tienen prisa.
+          ✅ Apuntado, y ya cuenta. {quienes.length > 0 && <>{quienes.map(nombre).join(" o ")} tiene{quienes.length > 1 ? "n" : ""} hasta el {hasta} para reclamarlo si está mal.</>}
         </div>
       )}
 
       <Reaccion resultado={resultado} clave={`${p.id}-${me.id}`} avatar={<Avatar j={me} tam={64} />} />
 
-      <div className="con-sello">
-        {p.estado === "confirmado" && <SelloActa id={p.id} />}
+      <div className={acta ? "con-sello" : undefined}>
+        {acta && <SelloActa id={p.id} />}
         <TarjetaPartido p={p} jugadores={jugadores} etiqueta={torneo ? <span className="chapa">🏟️ {torneo.nombre}</span> : null} />
       </div>
 
-      {p.estado === "pendiente" && (
-        <div className="tarjeta pila" style={{ marginTop: 12 }}>
-          <b>⏳ Pendiente de confirmar</b>
+      {plazo && (
+        <div className="pila" style={{ marginTop: 12 }}>
           <span className="suave pequeno">
-            Apuntado por {nombre(p.creadoPor)}. Tiene que confirmarlo: {quienes.map(nombre).join(" o ")}.
+            ⏳ Apuntado por {nombre(p.creadoPor)}. {quienes.length > 0 ? `${quienes.map(nombre).join(" o ")} puede${quienes.length > 1 ? "n" : ""} reclamarlo` : "Se puede reclamar"} hasta el {hasta}. Después queda en acta.
           </span>
-          {puedoConfirmar && (
-            <div className="fila">
-              <form action={confirmarPartido} style={{ flex: 1 }}>
-                <input type="hidden" name="id" value={p.id} />
-                <button className="boton ancho">✅ Confirmar</button>
-              </form>
-              <form action={rechazarPartido} style={{ flex: 1 }}>
-                <input type="hidden" name="id" value={p.id} />
-                <button className="boton rojo ancho">❌ Fue mentira</button>
-              </form>
-            </div>
+          {quienes.includes(me.id) && (
+            <Reclamar
+              id={p.id}
+              sets={p.sets}
+              formato={p.formato}
+              parejaA={p.a.map(nombre).join(" y ")}
+              parejaB={p.b ? p.b.map(nombre).join(" y ") : (p.bExterna ?? "Rivales")}
+            />
           )}
-          {!puedoConfirmar && p.creadoPor === me.id && (
-            <form action={rechazarPartido}>
+          {p.creadoPor === me.id && (
+            <form action={borrarMiPartido}>
               <input type="hidden" name="id" value={p.id} />
               <button className="boton secundario mini">🗑️ Me he equivocado, borrar</button>
             </form>
+          )}
+        </div>
+      )}
+
+      {p.estado === "reclamado" && rec && (
+        <div className="tarjeta peligro pila" style={{ marginTop: 12 }}>
+          <b>⚠️ Resultado reclamado: ahora mismo no cuenta</b>
+          <span>
+            <b>{nombre(rec.por)}</b> dice que{" "}
+            {rec.sets ? (
+              <>
+                fue {p.a.map(nombre).join(" y ")} <b>{textoSets(rec.sets)}</b> {p.b ? p.b.map(nombre).join(" y ") : p.bExterna}
+              </>
+            ) : (
+              <b>no se jugó</b>
+            )}
+            :
+            <br />
+            <i>«{rec.motivo}»</i>
+          </span>
+          {defensores(p).includes(me.id) && (
+            <div className="fila envolver">
+              <form action={aceptarReclamacion} style={{ flex: 1 }}>
+                <input type="hidden" name="id" value={p.id} />
+                <button className="boton ancho">✅ {rec.sets ? "Aceptar corrección" : "Vale, borrarlo"}</button>
+              </form>
+              <form action={mantenerResultado} style={{ flex: 1 }}>
+                <input type="hidden" name="id" value={p.id} />
+                <button className="boton rojo ancho">⚖️ El mío es el bueno</button>
+              </form>
+            </div>
+          )}
+          {defensores(p).includes(me.id) && (
+            <span className="suave pequeno">Si mantienes tu resultado, vuelve a contar y lo decide el tribunal.</span>
+          )}
+          {rec.por === me.id && (
+            <form action={retirarReclamacion}>
+              <input type="hidden" name="id" value={p.id} />
+              <button className="boton secundario mini">↩️ Retirar reclamación</button>
+            </form>
+          )}
+          {!defensores(p).includes(me.id) && rec.por !== me.id && (
+            <span className="suave pequeno">Lo tiene que resolver {defensores(p).map(nombre).join(" o ")}.</span>
           )}
         </div>
       )}
@@ -144,7 +192,7 @@ export default async function DetallePartido({ params, searchParams }: PageProps
         </div>
       )}
 
-      {p.estado === "confirmado" && juego && (
+      {acta && juego && (
         <div className="seccion fila entre">
           <span className="suave pequeno">¿Algo no cuadra? Llévalo al tribunal.</span>
           <BotonBorrar id={p.id} />

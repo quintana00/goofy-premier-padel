@@ -116,6 +116,13 @@ create table if not exists megafonos (
   acusado int not null references jugadores(id),
   primary key (partido_id, votante)
 );
+alter table partidos add column if not exists reclamado_por int references jugadores(id);
+alter table partidos add column if not exists reclamacion_motivo text;
+alter table partidos add column if not exists reclamacion_sets jsonb;
+alter table partidos add column if not exists reclamacion_formato text;
+alter table partidos add column if not exists reclamado_en timestamptz;
+-- Ya no hace falta que el rival confirme: lo que estaba esperando confirmación, cuenta.
+update partidos set estado = 'confirmado' where estado = 'pendiente';
 -- Lo acordado en el grupo: la Temporada 1 oficial cuenta "a partir de esta semana" (lunes 26/10/2026).
 update temporadas set inicio = date '2026-10-26' where inicio = date '2000-01-01';
 -- Primera temporada: desde el lunes de la semana en que se acordó.

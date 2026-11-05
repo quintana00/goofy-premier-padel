@@ -224,7 +224,7 @@ export function FormPartido({
         Apuntar resultado
       </button>
       <p className="suave pequeno" style={{ margin: 0, textAlign: "center" }}>
-        Los rivales tendrán que confirmarlo para que cuente. Nada de inventarse victorias.
+        Cuenta en cuanto lo apuntas. Los rivales tienen 48 h para reclamarlo si está mal.
       </p>
     </form>
   );

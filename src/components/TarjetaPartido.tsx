@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Avatar } from "@/components/Avatar";
-import { ganador } from "@/lib/motor";
+import { enActa, enPlazo, ganador } from "@/lib/motor";
 import type { Jugador, Partido } from "@/lib/tipos";
 
 export function Lado({
@@ -51,7 +51,9 @@ export function TarjetaPartido({
       <div className="fila entre suave pequeno">
         <span>
           {fecha} · {FORMATOS[p.formato]}
-          {p.estado === "confirmado" && <span className="chapa acta" style={{ marginLeft: 6 }}>📜 En acta</span>}
+          {enActa(p) && <span className="chapa acta" style={{ marginLeft: 6 }}>📜 En acta</span>}
+          {enPlazo(p) && <span className="chapa naranja" style={{ marginLeft: 6 }}>⏳ Reclamable</span>}
+          {p.estado === "reclamado" && <span className="chapa rojo" style={{ marginLeft: 6 }}>⚠️ Reclamado</span>}
         </span>
         {etiqueta}
       </div>
