@@ -11,6 +11,10 @@ export function escenaDeMedalla(m: Mundo, md: Medalla): EscenaMedalla | null {
   if (md.clave === "ego") return { tipo: "ego", y };
   if (md.clave === "strava") return { tipo: "nadar", y };
   if (md.clave === "cuchara") return { tipo: "cuchara", y };
+  if (md.clave === "placido") return { tipo: "placido", y };
+  if (md.clave === "matagigantes") return { tipo: "tirachinas", y };
+  if (md.clave === "red") return { tipo: "red", y };
+  if (md.clave === "desinflado") return { tipo: "ambulancia", y };
   if (md.clave === "ambulancia" || md.clave === "tocado") return { tipo: "ambulancia", y };
   if (md.clave === "lloron") {
     const borro = m.eventos.some((e) => e.tipo === "intento_borrado" && e.jugadorId === y);

@@ -39,6 +39,18 @@ const REGLAS: { t: string; d: React.ReactNode }[] = [
     d: "Después de un partido, los que jugaron pueden votar si alguien le gritó a su pareja. Con 2 votos al mismo jugador, medalla de Megáfono.",
   },
   {
+    t: "🎰 Casas de apuestas (de broma)",
+    d: "Antes de cada partido el ELO da un pronóstico y unas cuotas. Si gana la pareja a la que le daban menos de un 35 %, es un sorpresón: más puntos y posible medalla de Matagigantes. Aquí no se apuesta dinero: solo dignidad.",
+  },
+  {
+    t: "🕸️ Por debajo de la red",
+    d: "Quien se come un rosco (6-0), pasa por debajo de la red. La app lo deja documentado con su escena. Con dos roscos encajados, medalla.",
+  },
+  {
+    t: "🎾 ¿Hay pádel?",
+    d: "Cualquiera convoca una partida con día, hora y sitio. Los cuatro primeros que digan «dentro» juegan; el resto quedan de reservas por orden. Si alguien se cae, sube el primer reserva.",
+  },
+  {
     t: "🏟️ Torneos",
     d: "Torneos normales (cada pareja pone cómo quedó) y torneo cruzado o americano: las parejas rotan, todos juegan con todos y sale un ranking individual por juegos ganados. El americano no cuenta para el ELO.",
   },

@@ -15,7 +15,7 @@ const iso = (d: Date | string | null) => (d == null ? null : typeof d === "strin
 
 export const cargarMundo = cache(async (): Promise<Mundo> => {
   const sql = await db();
-  const [jugadores, partidos, denuncias, votos, torneos, resultados, gastos, partes, temporadas, eventos, megafonos] = await Promise.all([
+  const [jugadores, partidos, denuncias, votos, torneos, resultados, gastos, partes, temporadas, eventos, megafonos, quedadas, apuntados] = await Promise.all([
     sql`select id, nombre, avatar_v from jugadores order by nombre`,
     sql`select *, fecha::text as fecha_t from partidos where estado <> 'rechazado'`,
     sql`select * from denuncias`,
@@ -27,6 +27,8 @@ export const cargarMundo = cache(async (): Promise<Mundo> => {
     sql`select *, inicio::text as inicio_t, fin::text as fin_t from temporadas order by inicio, id`,
     sql`select * from eventos order by id`,
     sql`select * from megafonos`,
+    sql`select *, fecha::text as fecha_t from quedadas where fecha >= (now() at time zone 'Europe/Madrid')::date - 1 order by fecha, hora, id`,
+    sql`select * from quedada_apuntados order by en`,
   ]);
 
   return {
@@ -107,6 +109,17 @@ export const cargarMundo = cache(async (): Promise<Mundo> => {
       jugadorId: e.jugador_id,
       partidoId: e.partido_id,
       creado: iso(e.creado)!,
+    })),
+    quedadas: quedadas.map((q) => ({
+      id: q.id,
+      fecha: q.fecha_t,
+      hora: q.hora,
+      sitio: q.sitio,
+      nota: q.nota,
+      creadoPor: q.creado_por,
+      apuntados: apuntados
+        .filter((a) => a.quedada_id === q.id)
+        .map((a) => ({ jugadorId: a.jugador_id, dentro: a.dentro, en: iso(a.en)! })),
     })),
     megafonos: megafonos.map((v) => ({ partidoId: v.partido_id, votante: v.votante, acusado: v.acusado })),
   };

@@ -84,6 +84,17 @@ export type Americano = {
   rondas: { pistas: PistaAmericano[]; descansan: number[] }[];
 };
 
+// «¿Hay pádel?»: propuesta de partida. Los 4 primeros "dentro" juegan; el resto, reservas.
+export type Quedada = {
+  id: number;
+  fecha: string; // YYYY-MM-DD
+  hora: string; // HH:MM
+  sitio: string;
+  nota: string;
+  creadoPor: number;
+  apuntados: { jugadorId: number; dentro: boolean; en: string }[];
+};
+
 export type Mundo = {
   jugadores: Jugador[];
   partidos: Partido[];
@@ -93,5 +104,6 @@ export type Mundo = {
   temporadas: Temporada[];
   eventos: Evento[];
   megafonos: Megafono[];
+  quedadas: Quedada[];
   hoy: string;
 };

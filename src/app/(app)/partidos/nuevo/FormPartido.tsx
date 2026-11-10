@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { nuevoPartido } from "@/app/acciones";
 import { Avatar } from "@/components/Avatar";
-import { ganador, setsValidos } from "@/lib/motor";
+import { ganador, pronostico, setsValidos } from "@/lib/motor";
 import type { Formato, Jugador, Marcador } from "@/lib/tipos";
 
 const FORMATOS: { valor: Formato; texto: string; ayuda: string }[] = [
@@ -74,16 +74,20 @@ export function FormPartido({
   hoy,
   torneos,
   torneoInicial,
+  inicial,
+  elos,
 }: {
   jugadores: Jugador[];
   yoId: number;
   hoy: string;
   torneos: { id: number; nombre: string }[];
   torneoInicial: number | null;
+  inicial?: { a: number[]; b: number[] };
+  elos: Record<number, number>;
 }) {
   const [estado, accion, enviando] = useActionState(nuevoPartido, null);
-  const [a, setA] = useState<number[]>([yoId]);
-  const [b, setB] = useState<number[]>([]);
+  const [a, setA] = useState<number[]>(inicial?.a ?? [yoId]);
+  const [b, setB] = useState<number[]>(inicial?.b ?? []);
   const [torneo, setTorneo] = useState<number | null>(torneoInicial);
   const [fuera, setFuera] = useState(false);
   const [sets, setSets] = useState<string[][]>([["", ""], ["", ""], ["", ""]]);
@@ -98,6 +102,8 @@ export function FormPartido({
     .map(([x, y]) => [Number(x), Number(y)]);
   const errorSets = marcador.length ? setsValidos(marcador, formato) : null;
   const juegoYo = a.includes(yoId) || b.includes(yoId);
+  const media = (ids: number[]) => ids.reduce((t, id) => t + (elos[id] ?? 1000), 0) / ids.length;
+  const cuotas = a.length === 2 && b.length === 2 && !fuera ? pronostico(media(a), media(b)) : null;
   const nombre = (ids: number[]) => ids.map((id) => jugadores.find((j) => j.id === id)?.nombre).join(" y ");
   const listos = a.length === 2 && (fuera || b.length === 2);
 
@@ -155,6 +161,34 @@ export function FormPartido({
           </>
         )}
       </div>
+
+      {cuotas && (
+        <div className="tarjeta pila cuotas" style={{ gap: 6 }}>
+          <span className="suave pequeno" style={{ fontWeight: 800, letterSpacing: "0.06em" }}>
+            🎰 LAS CASAS DE APUESTAS DICEN
+          </span>
+          <div className="fila entre">
+            <span>
+              <b style={{ color: "var(--bola)" }}>{nombre(a)}</b>
+              <br />
+              <span className="grande" style={{ fontSize: 28 }}>{cuotas.cuotaA.toFixed(2)}</span>
+            </span>
+            <span style={{ textAlign: "right" }}>
+              <b style={{ color: "var(--rosa)" }}>{nombre(b)}</b>
+              <br />
+              <span className="grande" style={{ fontSize: 28 }}>{cuotas.cuotaB.toFixed(2)}</span>
+            </span>
+          </div>
+          <div className="barra-duelo">
+            <i style={{ width: `${Math.round(cuotas.a * 100)}%` }} />
+          </div>
+          <span className="suave pequeno">
+            {Math.abs(cuotas.a - 0.5) < 0.08
+              ? "Partido igualadísimo. Aquí se viene pique."
+              : `Favoritos: ${cuotas.a > 0.5 ? nombre(a) : nombre(b)} (${Math.round(Math.max(cuotas.a, cuotas.b) * 100)} %). Si pierden, sorpresón.`}
+          </span>
+        </div>
+      )}
 
       <div className="pila" style={{ gap: 8 }}>
         <b>Formato</b>

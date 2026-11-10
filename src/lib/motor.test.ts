@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  clasificacionAmericano, confirmadores, defensores, enActa, enPlazo, deudas, duelo, estadisticas, generarAmericano, medallas, peorPesadilla,
+  clasificacionAmericano, confirmadores, pronostico, titulares, defensores, enActa, enPlazo, deudas, duelo, estadisticas, generarAmericano, medallas, peorPesadilla,
   muroDeLaVerguenza, relaciones, repartir, setsValidos, veredicto,
 } from "./motor";
 import type { Mundo, Partido } from "./tipos";
@@ -14,7 +14,7 @@ const partido = (a: [number, number], b: [number, number] | null, sets: [number,
 
 const mundo = (partidos: Partido[], extra: Partial<Mundo> = {}): Mundo => ({
   jugadores: [1, 2, 3, 4, 5].map((id) => ({ id, nombre: `J${id}`, avatarV: 0 })),
-  partidos, denuncias: [], torneos: [], gastos: [], temporadas: [{ id: 1, nombre: "T1", inicio: "2026-01-01", fin: null }], eventos: [], megafonos: [],
+  partidos, denuncias: [], torneos: [], gastos: [], temporadas: [{ id: 1, nombre: "T1", inicio: "2026-01-01", fin: null }], eventos: [], megafonos: [], quedadas: [],
   hoy: "2026-10-28", ...extra,
 });
 
@@ -218,5 +218,36 @@ describe("plazo para reclamar", () => {
   it("un partido reclamado no cuenta", () => {
     const est = estadisticas(mundo([partido([1, 2], [3, 4], [[6, 1], [6, 1]], { estado: "reclamado" })]));
     expect(est.fichas.get(1)!.jugados).toBe(0);
+  });
+});
+
+describe("pronósticos, sorpresas y titulares", () => {
+  it("las cuotas reflejan el ELO", () => {
+    const igual = pronostico(1000, 1000);
+    expect(igual.a).toBeCloseTo(0.5);
+    expect(igual.cuotaA).toBe(1.9);
+    const favorito = pronostico(1200, 1000);
+    expect(favorito.a).toBeGreaterThan(0.7);
+    expect(favorito.cuotaA).toBeLessThan(favorito.cuotaB);
+  });
+
+  it("detecta sorpresones, roscos, desinflados y Plácido Domingo", () => {
+    const ps = [
+      ...Array.from({ length: 6 }, (_, i) => partido([1, 2], [3, 4], [[6, 0], [6, 1]], { fecha: `2026-10-0${i + 1}` })), // 1 y 2 arrasan
+      partido([3, 4], [1, 2], [[4, 6], [6, 4], [6, 4]], { fecha: "2026-10-07" }), // y de repente pierden habiendo ganado el primero
+    ];
+    const m = mundo(ps);
+    const est = estadisticas(m);
+    expect(est.pronosticos.get(ps[6].id)!).toBeLessThan(0.35);
+    expect(est.fichas.get(3)!.sorpresas).toBe(1);
+    expect(est.fichas.get(1)!.desinflados).toBe(1);
+    const md = medallas(m, est);
+    const de = (c: string) => md.filter((x) => x.clave === c).map((x) => x.jugadorId).sort();
+    expect(de("matagigantes")).toHaveLength(1);
+    expect(de("red")).toEqual([3, 4]);
+    expect(de("placido")).toHaveLength(1);
+    const t = titulares({ ...m, hoy: "2026-10-08" }, est, (id) => `J${id}`);
+    expect(t.some((x) => x.texto.startsWith("SORPRESÓN"))).toBe(true);
+    expect(t.some((x) => x.texto.startsWith("ROSCO"))).toBe(true);
   });
 });

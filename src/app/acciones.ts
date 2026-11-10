@@ -529,3 +529,46 @@ export async function resultadoAmericano(_: Estado, fd: FormData): Promise<Estad
   refrescar();
   return { ok: "Guardado" };
 }
+
+// ---------- ¿Hay pádel? ----------
+
+export async function nuevaQuedada(_: Estado, fd: FormData): Promise<Estado> {
+  try {
+    const me = await yo();
+    const fecha = Fecha.parse(fd.get("fecha"));
+    const hora = z.string().regex(/^\d{2}:\d{2}$/, "Hora no válida").parse(fd.get("hora"));
+    const sitio = z.string().trim().min(2, "¿Dónde?").max(40).parse(fd.get("sitio"));
+    const nota = z.string().trim().max(120).parse(fd.get("nota") ?? "");
+    if (fecha < hoyMadrid()) return { error: "Eso ya ha pasado, vidente" };
+    const sql = await db();
+    await sql.begin(async (tx) => {
+      const [{ id }] = await tx`insert into quedadas (fecha, hora, sitio, nota, creado_por)
+                                values (${fecha}, ${hora}, ${sitio}, ${nota}, ${me.id}) returning id`;
+      await tx`insert into quedada_apuntados (quedada_id, jugador_id, dentro) values (${id}, ${me.id}, true)`;
+    });
+  } catch (e) {
+    return fallo(e);
+  }
+  refrescar();
+  return { ok: "Convocada. Ahora pásala por el grupo 📲" };
+}
+
+export async function responderQuedada(fd: FormData) {
+  const me = await yo();
+  const id = Number(fd.get("id"));
+  const r = String(fd.get("r"));
+  const sql = await db();
+  if (r === "quitar") await sql`delete from quedada_apuntados where quedada_id = ${id} and jugador_id = ${me.id}`;
+  else
+    await sql`insert into quedada_apuntados (quedada_id, jugador_id, dentro) values (${id}, ${me.id}, ${r === "dentro"})
+              on conflict (quedada_id, jugador_id) do update set dentro = excluded.dentro,
+                en = case when quedada_apuntados.dentro = excluded.dentro then quedada_apuntados.en else now() end`;
+  refrescar();
+}
+
+export async function borrarQuedada(fd: FormData) {
+  const me = await yo();
+  const sql = await db();
+  await sql`delete from quedadas where id = ${Number(fd.get("id"))} and creado_por = ${me.id}`;
+  refrescar();
+}

@@ -902,3 +902,54 @@ details > summary::-webkit-details-marker {
 .lado-juego { margin-left: 2px; font-size: 9px; font-weight: 900; color: var(--suave); }
 .escena .pie p.cita { margin-top: 8px; font-style: italic; color: #333; }
 .escena .pie p.cita span { font-style: normal; font-weight: 800; color: #666; white-space: nowrap; }
+
+/* ---------- ¿Hay pádel? ---------- */
+.quedada.llena { border-color: var(--bola); background: linear-gradient(180deg, #24330f, var(--tarjeta)); }
+.sillas { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.silla { display: grid; justify-items: center; gap: 4px; padding: 10px 4px; border-radius: 14px; border: 1.5px dashed var(--borde); text-align: center; overflow: hidden; }
+.silla.ocupada { border-style: solid; border-color: var(--bola); background: rgba(217, 255, 61, 0.06); animation: rebote 0.45s cubic-bezier(.3,1.6,.5,1) both; }
+.silla .hueco { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: #24326a; color: var(--suave); font-weight: 900; font-size: 20px; animation: latir 1.6s ease-in-out infinite; }
+@keyframes latir { 50% { transform: scale(1.08); opacity: 0.7; } }
+.sello-nivel { padding: 4px 8px; border: 2.5px solid var(--bola); border-radius: 8px; color: var(--bola); font-weight: 900; font-size: 11px; letter-spacing: 0.08em; transform: rotate(-6deg); animation: sello-nivel 0.5s cubic-bezier(.3,1.6,.5,1) both; white-space: nowrap; }
+@keyframes sello-nivel { from { transform: rotate(-25deg) scale(2.5); opacity: 0; } }
+.cuotas { border-color: #ffd34d; background: linear-gradient(180deg, #2b2408, var(--tarjeta)); }
+.barra-duelo { height: 10px; border-radius: 99px; background: var(--rosa); overflow: hidden; border: 2px solid #000; }
+.barra-duelo > i { display: block; height: 100%; background: var(--bola); transition: width 0.5s cubic-bezier(.2,.9,.3,1); }
+
+/* ---------- Escenas: red, Plácido, tirachinas ---------- */
+.e-gatear { animation: e-gatear 2.4s ease-in-out infinite alternate; }
+@keyframes e-gatear { from { transform: translateX(-34px); } to { transform: translateX(16px); } }
+.e-risa { animation: e-risa 0.22s ease-in-out infinite alternate; }
+@keyframes e-risa { to { transform: translateY(-4px); } }
+.e-cantar { animation: e-cantar 1.6s ease-in-out infinite alternate; transform-origin: center bottom; }
+@keyframes e-cantar { from { transform: scale(1, 0.98) rotate(-2deg); } to { transform: scale(1.03, 1.03) rotate(2deg); } }
+.e-nota { animation: e-nota 2.1s ease-out infinite; }
+@keyframes e-nota { 0% { transform: translate(0, 10px) rotate(-10deg); opacity: 0; } 25% { opacity: 1; } 100% { transform: translate(14px, -50px) rotate(18deg); opacity: 0; } }
+.e-placida { animation: e-placida 3s ease-in-out infinite alternate; }
+@keyframes e-placida { from { transform: translateY(6px); } to { transform: translateY(-8px); } }
+.e-tambalea { animation: e-tambalea 1.8s ease-in-out infinite; }
+@keyframes e-tambalea { 0%, 40%, 100% { transform: rotate(0); } 55% { transform: rotate(9deg); } 70% { transform: rotate(5deg); } 85% { transform: rotate(8deg); } }
+.e-estrella { animation: e-pop 0.7s ease-in-out infinite; }
+.e-pedrada { animation: e-pedrada 1.8s cubic-bezier(.3,.1,.6,1) infinite; }
+@keyframes e-pedrada { 0%, 20% { transform: translate(0, 0); opacity: 1; } 42% { transform: translate(118px, -62px); opacity: 1; } 50% { transform: translate(128px, -40px); opacity: 0; } 100% { opacity: 0; } }
+.e-goma { animation: e-goma 1.8s ease-out infinite; transform-origin: center top; }
+@keyframes e-goma { 0%, 18% { transform: scaleY(2.2); } 26%, 100% { transform: scaleY(1); } }
+
+/* ---------- Teletipo ---------- */
+.teletipo { display: flex; align-items: stretch; margin: 0 0 14px; border-radius: 12px; overflow: hidden; border: 2px solid #000; background: #fff; color: #111; }
+.teletipo-marca { display: grid; place-items: center; padding: 4px 8px; background: #e8322f; color: #fff; font-size: 10px; line-height: 1.1; letter-spacing: 0.08em; text-align: center; font-weight: 900; z-index: 1; }
+.teletipo-ventana { display: flex; overflow: hidden; flex: 1; }
+.teletipo-tira { display: flex; flex: none; align-items: center; gap: 28px; padding: 8px 14px; white-space: nowrap; font-weight: 750; font-size: 14px; animation: teletipo var(--dur, 40s) linear infinite; }
+.teletipo-ventana:hover .teletipo-tira, .teletipo-ventana:active .teletipo-tira { animation-play-state: paused; }
+@keyframes teletipo { to { transform: translateX(-100%); } }
+@media (prefers-reduced-motion: reduce) { .teletipo-ventana { overflow-x: auto; } }
+
+/* ---------- Cargando ---------- */
+.cargando { display: grid; justify-items: center; gap: 18px; padding-top: 30vh; color: var(--suave); font-weight: 750; }
+.cargando .pista { position: relative; width: 120px; height: 70px; border-bottom: 3px solid var(--borde); }
+.cargando .bola { position: absolute; left: 0; bottom: 0; width: 22px; height: 22px; border-radius: 50%; background: var(--bola); border: 2px solid #000;
+  animation: carga-x 1.2s linear infinite alternate, carga-y 0.6s cubic-bezier(.5,0,.5,1) infinite alternate; }
+@keyframes carga-x { to { left: 98px; } }
+@keyframes carga-y { from { bottom: 0; } to { bottom: 48px; } }
+.haypadel { border-color: var(--bola); background: linear-gradient(90deg, rgba(217, 255, 61, 0.14), var(--tarjeta) 70%); }
+.haypadel.vacia { border-style: dashed; background: var(--tarjeta); }

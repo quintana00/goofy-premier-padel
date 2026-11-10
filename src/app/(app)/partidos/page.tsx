@@ -16,9 +16,14 @@ export default async function Partidos() {
     <>
       <div className="cabecera">
         <h1>Partidos</h1>
-        <Link href="/torneos" className="boton secundario mini">
-          🏟️ Torneos
-        </Link>
+        <span className="fila" style={{ gap: 6 }}>
+          <Link href="/hay-padel" className="boton mini">
+            🎾 ¿Hay pádel?
+          </Link>
+          <Link href="/torneos" className="boton secundario mini">
+            🏟️ Torneos
+          </Link>
+        </span>
       </div>
 
       {reclamados.length > 0 && (

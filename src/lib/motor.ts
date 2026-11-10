@@ -6,6 +6,15 @@ export const ELO_INICIAL = 1000;
 
 export const PUESTOS = ["Campeones", "Finalistas", "Semifinales", "Cuartos", "Octavos", "Fase de grupos", "Consolación"] as const;
 const K = 32;
+// Por debajo de esta probabilidad, ganar es un sorpresón.
+export const SORPRESA = 0.35;
+
+// Probabilidad de que gane la pareja A según el ELO, y sus cuotas de casa de apuestas (de broma).
+export function pronostico(eloA: number, eloB: number) {
+  const a = 1 / (1 + 10 ** ((eloB - eloA) / 400));
+  const cuota = (x: number) => Math.max(1.01, Math.round((0.95 / x) * 100) / 100);
+  return { a, b: 1 - a, cuotaA: cuota(a), cuotaB: cuota(1 - a) };
+}
 
 export function ganador(sets: Marcador[]): "a" | "b" {
   const a = sets.filter(([x, y]) => x > y).length;
@@ -103,6 +112,8 @@ export type Ficha = {
   roscosDados: number;
   roscosRecibidos: number;
   inacabados: number;
+  sorpresas: number; // victorias cuando el ELO le daba menos de un 35 %
+  desinflados: number; // ganó el primer set y perdió el partido
   porLado: { derecha: { g: number; p: number }; izquierda: { g: number; p: number } };
   ultimo: string | null;
 };
@@ -119,13 +130,15 @@ export type Estadisticas = {
   cambios: Cambio[];
   partidos: Partido[]; // los que tienen ganador
   inacabados: Partido[];
+  // Por partido: la probabilidad que el ELO le daba, antes de jugarse, a la pareja que acabó ganando.
+  pronosticos: Map<number, number>;
 };
 
 function fichaVacia(id: number): Ficha {
   return {
     id, elo: ELO_INICIAL, historial: [ELO_INICIAL], jugados: 0, ganados: 0, perdidos: 0, setsG: 0, setsP: 0,
     juegosG: 0, juegosP: 0, racha: 0, mejorRacha: 0, peorRacha: 0, tercerSetG: 0, tercerSetP: 0,
-    remontadas: 0, roscosDados: 0, roscosRecibidos: 0, inacabados: 0,
+    remontadas: 0, roscosDados: 0, roscosRecibidos: 0, inacabados: 0, sorpresas: 0, desinflados: 0,
     porLado: { derecha: { g: 0, p: 0 }, izquierda: { g: 0, p: 0 } }, ultimo: null,
   };
 }
@@ -137,6 +150,7 @@ export function estadisticas(m: Mundo, desde?: string, hasta?: string): Estadist
   const caras = new Map<string, Cara>();
   const parejas = new Map<string, Pareja>();
   const cambios: Cambio[] = [];
+  const pronosticos = new Map<number, number>();
   const partidos = partidosQueCuentan(m, desde, hasta);
 
   for (const p of partidos) {
@@ -174,6 +188,8 @@ export function estadisticas(m: Mundo, desde?: string, hasta?: string): Estadist
     // Ganar 6-0 6-0 da algo más que ganar en el tie-break del tercero.
     const margen = 1 + Math.min(Math.abs(juegosA - juegosB), 10) / 20;
     const deltaA = K * margen * ((gana === "a" ? 1 : 0) - esperadoA);
+    const pGanador = gana === "a" ? esperadoA : 1 - esperadoA;
+    pronosticos.set(p.id, pGanador);
 
     const lados: [number[], "a" | "b", number, number | null][] = [[p.a, "a", deltaA, p.aDerecha]];
     if (p.b) lados.push([p.b, "b", -deltaA, p.bDerecha]);
@@ -213,6 +229,8 @@ export function estadisticas(m: Mundo, desde?: string, hasta?: string): Estadist
         const primero = p.sets[0];
         const perdioPrimero = nombre === "a" ? primero[0] < primero[1] : primero[1] < primero[0];
         if (gano && perdioPrimero && p.sets.length > 1) f.remontadas++;
+        if (!gano && !perdioPrimero && p.sets.length > 1) f.desinflados++;
+        if (gano && pGanador < SORPRESA) f.sorpresas++;
       }
       const [j1, j2] = lado;
       const k = clave(j1, j2);
@@ -248,6 +266,7 @@ export function estadisticas(m: Mundo, desde?: string, hasta?: string): Estadist
     cambios,
     partidos: partidos.filter((p) => p.formato !== "inacabado"),
     inacabados: partidos.filter((p) => p.formato === "inacabado"),
+    pronosticos,
   };
 }
 
@@ -466,6 +485,25 @@ export function medallas(m: Mundo, est: Estadisticas): Medalla[] {
       }
     }
   }
+
+  // Del chat: «con el dedillo por el triángulo de la pala… para volear hace como un tirachinas».
+  const matagigantes = maximo("sorpresas", 1);
+  if (matagigantes)
+    add("matagigantes", "🪃", "Matagigantes", `${matagigantes.sorpresas} sorpres${matagigantes.sorpresas > 1 ? "ones" : "ón"}: gana cuando el ELO le da por muerto`, matagigantes.id);
+  // «Acabas el primer set MUERTO».
+  const desinflado = maximo("desinflados", 2);
+  if (desinflado)
+    add("desinflado", "🫁", "Acaba el primer set MUERTO", `${desinflado.desinflados} partidos perdidos después de ganar el primer set`, desinflado.id);
+  // «Tus bolas no hacen daño, las dejas plácidas» → «Tú lo que eres es Plácido Domingo».
+  const placido = conPartidos
+    .filter((f) => f.jugados >= 3)
+    .map((f) => ({ f, media: (f.juegosG - f.juegosP) / f.jugados }))
+    .sort((x, y) => x.media - y.media)[0];
+  if (placido && placido.media <= -2)
+    add("placido", "🎤", "Plácido Domingo", `Sus bolas no hacen daño: ${placido.media.toFixed(1).replace(".", ",")} juegos de media por partido`, placido.f.id);
+  // «Quien pierda, por debajo de la red».
+  for (const f of conPartidos)
+    if (f.roscosRecibidos >= 2) add("red", "🕸️", "Por debajo de la red", `${f.roscosRecibidos} roscos encajados. A gatear`, f.id);
   return out;
 }
 
@@ -677,4 +715,48 @@ export function muroDeLaVerguenza(m: Mundo): Verguenza[] {
     if (d.debe > 0 && d.diasMax >= 14)
       out.push({ fecha: m.hoy, emoji: "🎩", jugadorId: d.id, texto: `lleva ${d.diasMax} días sin pagar ${euros(d.debe)}` });
   return out.sort((a, b) => b.fecha.localeCompare(a.fecha));
+}
+
+// ---------- El Goofy Deportivo ----------
+
+export type Titular = { emoji: string; texto: string; partidoId?: number; jugadorId?: number };
+
+// Titulares de prensa deportiva (sensacionalista) con lo último que ha pasado. `nombre` devuelve el nombre o el apodo.
+export function titulares(m: Mundo, est: Estadisticas, nombre: (id: number) => string): Titular[] {
+  const out: Titular[] = [];
+  const pareja = (ids: number[] | null, externa?: string | null) => (ids ? ids.map(nombre).join(" y ") : (externa ?? "los de fuera"));
+  const recientes = [...est.partidos].filter((p) => diasEntre(p.fecha, m.hoy) <= 7).reverse();
+
+  for (const p of recientes.slice(0, 8)) {
+    const gana = ganador(p.sets);
+    const [g, pe] = gana === "a" ? [p.a, p.b] : [p.b, p.a];
+    const G = pareja(g, p.bExterna);
+    const P = pareja(pe, p.bExterna);
+    const marcador = textoSets(p.sets, gana);
+    const prob = est.pronosticos.get(p.id) ?? 0.5;
+    const rosco = p.sets.some(([x, y]) => Math.min(x, y) === 0 && Math.max(x, y) === 6);
+    const dif = Math.abs(p.sets.reduce((s, [x, y]) => s + x - y, 0));
+    if (rosco) out.push({ emoji: "🕸️", texto: `ROSCO: ${P} pasan por debajo de la red tras el ${marcador} de ${G}`, partidoId: p.id });
+    else if (prob < SORPRESA) out.push({ emoji: "🤯", texto: `SORPRESÓN: ${G} tumban a ${P} cuando las casas de apuestas les daban un ${Math.round(prob * 100)} %`, partidoId: p.id });
+    else if (p.sets.length === 3) out.push({ emoji: "🥵", texto: `INFARTO en el tercer set: ${G} sobreviven a ${P} (${marcador})`, partidoId: p.id });
+    else if (dif >= 8) out.push({ emoji: "🔨", texto: `PALIZA: ${G} le quitan las pegatinas a ${P} (${marcador})`, partidoId: p.id });
+    else out.push({ emoji: "🎾", texto: `${G} ganan a ${P} por ${marcador}. ${P}: «partida de nivel»`, partidoId: p.id });
+  }
+
+  const conPartidos = est.ranking.filter((f) => f.jugados > 0);
+  if (conPartidos[0]) out.push({ emoji: "👑", texto: `${nombre(conPartidos[0].id)} sigue en lo más alto con ${Math.round(conPartidos[0].elo)} puntos. Nadie le tose`, jugadorId: conPartidos[0].id });
+  for (const f of conPartidos) {
+    if (f.racha >= 3) out.push({ emoji: "🦚", texto: `${nombre(f.id)} encadena ${f.racha} victorias y su ego ya necesita pista propia`, jugadorId: f.id });
+    if (f.racha <= -3) out.push({ emoji: "🚑", texto: `CRISIS: ${nombre(f.id)} suma ${-f.racha} derrotas seguidas. El vestuario pide calma`, jugadorId: f.id });
+    if (f.ultimo && diasEntre(f.ultimo, m.hoy) > 21) out.push({ emoji: "👻", texto: `¿Alguien ha visto a ${nombre(f.id)}? ${diasEntre(f.ultimo, m.hoy)} días sin pisar una pista`, jugadorId: f.id });
+  }
+  for (const p of m.partidos)
+    if (p.estado === "reclamado" && p.reclamacion)
+      out.push({ emoji: "⚠️", texto: `POLÉMICA: ${nombre(p.reclamacion.por)} reclama un resultado. Se masca la tragedia`, partidoId: p.id });
+  const moroso = deudas(m).find((d) => d.debe > 0);
+  if (moroso) out.push({ emoji: "🎩", texto: `El cobrador del frac busca a ${nombre(moroso.id)}: debe ${euros(moroso.debe)} desde hace ${moroso.diasMax} días`, jugadorId: moroso.id });
+  for (const e of m.eventos.slice(-2))
+    if (e.tipo === "intento_borrado") out.push({ emoji: "🥹", texto: `${nombre(e.jugadorId)}, pillado intentando borrar una derrota. «Tenemos llorón»`, jugadorId: e.jugadorId });
+  if (!out.length) out.push({ emoji: "🦗", texto: "Sin noticias. Borja pregunta por quinta vez: «¿Hay pádel?»" });
+  return out.slice(0, 12);
 }

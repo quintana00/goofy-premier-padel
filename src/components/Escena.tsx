@@ -20,6 +20,9 @@ const HABLA: Record<TipoEscena, ["x" | "y", Tema]> = {
   ego: ["y", "ego"],
   megafono: ["x", "pareja"],
   cuchara: ["y", "derrota"],
+  red: ["x", "victoria"],
+  placido: ["y", "derrota"],
+  tirachinas: ["y", "victoria"],
 };
 
 export type TipoEscena =
@@ -35,7 +38,10 @@ export type TipoEscena =
   | "nadar"
   | "ego"
   | "megafono"
-  | "cuchara";
+  | "cuchara"
+  | "red"
+  | "placido"
+  | "tirachinas";
 
 const N = "#111"; // trazo
 
@@ -742,6 +748,138 @@ function Cuchara({ y }: { y: Jugador }) {
   );
 }
 
+// «Quien pierda, por debajo de la red»: el que se come el rosco gatea por debajo mientras el otro se ríe.
+function Red({ x, y }: { x: Jugador | null; y: Jugador }) {
+  const k = `${x?.id ?? 0}-${y.id}`;
+  return (
+    <>
+      <rect width={360} height={220} fill="#d8f0ff" />
+      <Suelo color="#3d7bd9" />
+      <line x1={0} y1={206} x2={360} y2={206} stroke="#fff" strokeWidth={3} />
+      {/* Red */}
+      <rect x={176} y={96} width={8} height={104} fill="#444" stroke={N} strokeWidth={2.5} />
+      <rect x={60} y={96} width={240} height={10} fill="#fff" stroke={N} strokeWidth={2.5} />
+      <g stroke="#555" strokeWidth={1.2} opacity={0.7}>
+        {Array.from({ length: 13 }, (_, i) => (
+          <line key={`v${i}`} x1={62 + i * 19.6} y1={106} x2={62 + i * 19.6} y2={150} />
+        ))}
+        {[117, 128, 139, 150].map((yy) => (
+          <line key={yy} x1={60} y1={yy} x2={300} y2={yy} />
+        ))}
+      </g>
+      {/* El del rosco, a gatas */}
+      <g className="e-gatear">
+        <Extremidad d="M112 186 L104 200" color="#2b3a8c" ancho={9} />
+        <Extremidad d="M132 186 L138 200" color="#2b3a8c" ancho={9} />
+        <rect x={96} y={166} width={74} height={26} rx={13} fill={colorDe(y.id)} stroke={N} strokeWidth={3.5} />
+        <Extremidad d="M164 186 L172 200" color={PIEL} ancho={9} />
+        <Cabeza j={y} cx={186} cy={174} r={24} id={`rd${k}`} />
+        <path className="e-gota" d="M208 150 q-5 9 0 12 q5 -3 0 -12 Z" fill="#6cc3ff" stroke={N} strokeWidth={2} />
+      </g>
+      {/* El que mira y se ríe */}
+      {x && (
+        <g className="e-risa">
+          <Extremidad d="M286 170 L282 200" color="#2b3a8c" />
+          <Extremidad d="M306 170 L310 200" color="#2b3a8c" />
+          <Torso x={268} y={112} w={56} h={62} color={colorDe(x.id)} />
+          <Extremidad d="M272 128 Q250 132 238 150" color={PIEL} />
+          <Cabeza j={x} cx={296} cy={82} r={32} id={`rr${k}`} />
+        </g>
+      )}
+      <g className="e-bocadillo">
+        <rect x={14} y={14} width={76} height={56} rx={10} fill="#111" stroke={N} strokeWidth={3} />
+        <text x={52} y={40} textAnchor="middle" fontSize={22} fontWeight={900} fill="#d9ff3d">
+          6-0
+        </text>
+        <text x={52} y={60} textAnchor="middle" fontSize={18}>
+          🍩
+        </text>
+      </g>
+      {x && <Bocadillo x={206} y={12} texto="¡Por debajo! 😂" ancho={140} />}
+    </>
+  );
+}
+
+// «Tus bolas no hacen daño, las dejas plácidas» → Plácido Domingo dando un recital.
+function Placido({ y }: { y: Jugador }) {
+  return (
+    <>
+      <rect width={360} height={220} fill="#3a0d1c" />
+      <path d="M0 0 H70 Q60 110 20 220 H0 Z" fill="#a3122f" stroke={N} strokeWidth={3} />
+      <path d="M360 0 H290 Q300 110 340 220 H360 Z" fill="#a3122f" stroke={N} strokeWidth={3} />
+      <path d="M0 0 H360 V26 Q180 54 0 26 Z" fill="#c9163a" stroke={N} strokeWidth={3} />
+      <ellipse cx={180} cy={206} rx={120} ry={16} fill="#ffe9a8" opacity={0.25} />
+      <rect x={0} y={200} width={360} height={20} fill="#5a3a1c" />
+      <line x1={0} y1={200} x2={360} y2={200} stroke={N} strokeWidth={3} />
+      {/* Tenor */}
+      <g className="e-cantar">
+        <Extremidad d="M168 170 L164 200" color="#1d1d1d" />
+        <Extremidad d="M192 170 L196 200" color="#1d1d1d" />
+        <Torso x={148} y={108} w={64} h={66} color="#1d1d1d" />
+        <path d="M168 108 L180 140 L192 108 Z" fill="#fff" stroke={N} strokeWidth={2.5} />
+        <path d="M170 112 L180 118 L190 112 L190 124 L180 118 L170 124 Z" fill={N} />
+        <Extremidad d="M152 124 Q124 112 112 92" color="#1d1d1d" />
+        <Extremidad d="M208 124 Q236 112 248 92" color="#1d1d1d" />
+        <Cabeza j={y} cx={180} cy={76} r={38} id={`pl${y.id}`} />
+      </g>
+      {["♪", "♫", "♪"].map((n, i) => (
+        <text key={i} className="e-nota" style={{ animationDelay: `${i * 0.7}s` }} x={228 + i * 26} y={70} fontSize={26} fontWeight={900} fill="#ffe14d">
+          {n}
+        </text>
+      ))}
+      {/* Bolas plácidas, flotando sin hacer daño a nadie */}
+      {[
+        [84, 150],
+        [276, 160],
+        [60, 96],
+      ].map(([cx, cy], i) => (
+        <g key={i} className="e-placida" style={{ animationDelay: `${i * 0.9}s` }}>
+          <circle cx={cx} cy={cy} r={11} fill="#d9ff3d" stroke={N} strokeWidth={2.5} />
+          <path d={`M${cx - 9} ${cy - 3} q9 6 18 0`} fill="none" stroke="#fff" strokeWidth={2} />
+          <text x={cx + 12} y={cy - 12} fontSize={11} fontWeight={900} fill="#fff">
+            zzz
+          </text>
+        </g>
+      ))}
+    </>
+  );
+}
+
+// Matagigantes: el tirachinas de Zuri contra un rival enorme.
+function Tirachinas({ x, y }: { x: Jugador | null; y: Jugador }) {
+  const k = `${x?.id ?? 0}-${y.id}`;
+  return (
+    <>
+      <rect width={360} height={220} fill="#fff1c9" />
+      <Suelo color="#e2c27a" />
+      {/* Gigante */}
+      <g className="e-tambalea" style={{ transformOrigin: "272px 200px", transformBox: "view-box" }}>
+        <Extremidad d="M252 150 L246 200" color="#2b3a8c" ancho={16} />
+        <Extremidad d="M292 150 L298 200" color="#2b3a8c" ancho={16} />
+        <rect x={222} y={74} width={100} height={86} rx={30} fill={x ? colorDe(x.id) : "#b48cff"} stroke={N} strokeWidth={4} />
+        <Cabeza j={x} cx={272} cy={44} r={40} id={`tg${k}`} />
+        {[0, 1, 2].map((i) => (
+          <text key={i} className="e-estrella" style={{ animationDelay: `${i * 0.25}s` }} x={226 + i * 40} y={14} fontSize={18}>
+            💫
+          </text>
+        ))}
+      </g>
+      {/* El pequeño con el tirachinas */}
+      <g>
+        <Extremidad d="M62 176 L58 200" color="#2b3a8c" ancho={9} />
+        <Extremidad d="M80 176 L84 200" color="#2b3a8c" ancho={9} />
+        <Torso x={48} y={134} w={46} h={46} color={colorDe(y.id)} />
+        <Extremidad d="M90 148 Q104 144 112 132" color={PIEL} ancho={8} />
+        <Cabeza j={y} cx={70} cy={110} r={26} id={`tp${k}`} />
+        <path d="M112 136 V116 M112 116 L102 100 M112 116 L122 100" fill="none" stroke="#8a5a2b" strokeWidth={6} strokeLinecap="round" />
+        <path className="e-goma" d="M102 100 Q112 112 122 100" fill="none" stroke={N} strokeWidth={2.5} />
+      </g>
+      <circle className="e-pedrada" cx={118} cy={104} r={8} fill="#d9ff3d" stroke={N} strokeWidth={2.5} />
+      <Bocadillo x={14} y={14} texto="¡Sorpresón! 🤯" ancho={136} />
+    </>
+  );
+}
+
 export function Escena({
   tipo,
   x,
@@ -806,6 +944,15 @@ export function Escena({
       break;
     case "cuchara":
       dibujo = <Cuchara y={y} />;
+      break;
+    case "red":
+      dibujo = <Red x={x ?? null} y={y} />;
+      break;
+    case "placido":
+      dibujo = <Placido y={y} />;
+      break;
+    case "tirachinas":
+      dibujo = <Tirachinas x={x ?? null} y={y} />;
       break;
   }
   return (

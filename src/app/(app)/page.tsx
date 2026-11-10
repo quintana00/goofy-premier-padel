@@ -4,7 +4,8 @@ import { RankingAnimado } from "@/components/Animaciones";
 import { Avatar } from "@/components/Avatar";
 import { Marca } from "@/components/Marca";
 import { alcance, cargarMundo, yo } from "@/lib/datos";
-import { confirmadores, defensores, deudas, diasEntre, enPlazo, euros, estadisticas, textoSets, type Ficha } from "@/lib/motor";
+import { confirmadores, defensores, deudas, diasEntre, enPlazo, euros, estadisticas, textoSets, titulares, type Ficha } from "@/lib/motor";
+import { Teletipo } from "@/components/Teletipo";
 
 function Racha({ f }: { f: Ficha }) {
   if (f.racha >= 3) return <span className="chapa verde">🦚 {f.racha} seguidas</span>;
@@ -32,6 +33,8 @@ export default async function Ranking({ searchParams }: PageProps<"/">) {
   const temporada = m.temporadas.find((t) => String(t.id) === a.ver);
   const terminada = temporada && (temporada.fin ? temporada.fin < m.hoy : Boolean(a.hasta));
   const fechaCorta = (f: string) => new Date(`${f}T12:00:00`).toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+  const proxima = m.quedadas.find((q) => q.fecha >= m.hoy);
+  const dentroProxima = proxima?.apuntados.filter((x) => x.dentro).length ?? 0;
   const ultimoDelta = new Map<number, number>();
   for (const c of est.cambios) ultimoDelta.set(c.jugadorId, c.delta);
 
@@ -44,7 +47,32 @@ export default async function Ranking({ searchParams }: PageProps<"/">) {
         </Link>
       </div>
 
+      <Teletipo titulares={titulares(m, est, nombreDe)} />
+
       <div className="pila" style={{ marginBottom: 16 }}>
+        <Link href="/hay-padel" className={`tarjeta fila entre haypadel ${proxima ? "" : "vacia"}`}>
+          {proxima ? (
+            <span>
+              <b>
+                🎾 {proxima.fecha === m.hoy ? "Hoy" : fechaCorta(proxima.fecha)} {proxima.hora} · {proxima.sitio}
+              </b>
+              <br />
+              <span className="suave pequeno">
+                {dentroProxima >= 4
+                  ? "Partida de nivel: ya hay cuatro."
+                  : `Falta${4 - dentroProxima > 1 ? "n" : ""} ${4 - dentroProxima}.`}{" "}
+                {proxima.apuntados.some((x) => x.jugadorId === me.id) ? "Ya has contestado" : "¿Tú qué? Contesta"}
+              </span>
+            </span>
+          ) : (
+            <span>
+              <b>🎾 ¿Hay pádel?</b>
+              <br />
+              <span className="suave pequeno">Nadie ha convocado nada. Convoca tú en dos toques</span>
+            </span>
+          )}
+          <span>→</span>
+        </Link>
         {porResolver.length > 0 && (
           <Link href={`/partidos/${porResolver[0].id}`} className="tarjeta peligro fila entre">
             <span>

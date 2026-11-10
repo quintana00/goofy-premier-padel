@@ -35,7 +35,7 @@ export default async function Piques({ searchParams }: PageProps<"/piques">) {
   // Escenas de las medallas del pique (megáfono, Strava, llorón, reconciliación), una por pareja.
   const vistos = new Set<string>();
   const escenasMedallas = lista
-    .filter((md) => ["megafono", "strava", "lloron"].includes(md.clave) || md.clave.startsWith("reconciliacion-"))
+    .filter((md) => ["megafono", "strava", "lloron", "placido", "matagigantes", "red"].includes(md.clave) || md.clave.startsWith("reconciliacion-"))
     .map((md) => ({ md, datos: escenaDeMedalla(m, md) }))
     .filter((e): e is { md: typeof e.md; datos: NonNullable<typeof e.datos> } => {
       if (!e.datos) return false;

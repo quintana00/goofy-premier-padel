@@ -6,7 +6,7 @@ import { Avatar } from "@/components/Avatar";
 import { Escena } from "@/components/Escena";
 import { TarjetaPartido } from "@/components/TarjetaPartido";
 import { cargarMundo, yo } from "@/lib/datos";
-import { confirmadores, defensores, enActa, enPartido, enPlazo, estadisticas, ganador, reclamableHasta, textoSets, veredicto } from "@/lib/motor";
+import { SORPRESA, confirmadores, defensores, enActa, enPartido, enPlazo, estadisticas, ganador, reclamableHasta, textoSets, veredicto } from "@/lib/motor";
 import { Denunciar } from "./Denunciar";
 import { Reclamar } from "./Reclamar";
 
@@ -37,6 +37,11 @@ export default async function DetallePartido({ params, searchParams }: PageProps
   const decidido = p.estado === "confirmado" && p.formato !== "inacabado";
   const ganadores: number[] = ganador(p.sets) === "a" ? p.a : (p.b ?? []);
   const resultado = decidido && juego ? (ganadores.includes(me.id) ? "gana" : "pierde") : null;
+  const est = estadisticas(m);
+  const prob = est.pronosticos.get(p.id);
+  const perdedores: number[] = ganador(p.sets) === "a" ? (p.b ?? []) : p.a;
+  const rosco = decidido && p.sets.some(([x, y]) => Math.min(x, y) === 0 && Math.max(x, y) === 6);
+  const revancha = p.b ? `/partidos/nuevo?a1=${p.a[0]}&a2=${p.a[1]}&b1=${p.b[0]}&b2=${p.b[1]}` : null;
   const intentos = m.eventos.filter((e) => e.tipo === "intento_borrado" && e.partidoId === p.id);
   const gritos = m.megafonos.filter((v) => v.partidoId === p.id);
   const miGrito = gritos.find((v) => v.votante === me.id)?.acusado ?? 0;
@@ -127,6 +132,42 @@ export default async function DetallePartido({ params, searchParams }: PageProps
             <span className="suave pequeno">Lo tiene que resolver {defensores(p).map(nombre).join(" o ")}.</span>
           )}
         </div>
+      )}
+
+      {decidido && prob !== undefined && (
+        <div className="pila" style={{ marginTop: 12 }}>
+          <span className={`chapa ${prob < SORPRESA ? "rosa" : ""}`} style={{ justifySelf: "start", whiteSpace: "normal" }}>
+            {prob < SORPRESA
+              ? `🤯 Sorpresón: las casas de apuestas solo les daban un ${Math.round(prob * 100)} %`
+              : prob > 0.65
+                ? `🎰 Lo esperado: eran favoritos con un ${Math.round(prob * 100)} %`
+                : `⚖️ Estaba igualado: ${Math.round(prob * 100)} % para los que ganaron`}
+          </span>
+          {rosco && perdedores[0] && jugadores.get(perdedores[0]) && (
+            <Escena
+              tipo="red"
+              x={jugadores.get(ganadores[0]) ?? null}
+              y={jugadores.get(perdedores.includes(me.id) ? me.id : perdedores[0])!}
+              titulo={`🕸️ Rosco: ${perdedores.map(nombre).join(" y ")}, por debajo de la red`}
+              texto="«Quien pierda, por debajo de la red». Son las normas."
+            />
+          )}
+          {!rosco && prob < SORPRESA && jugadores.get(ganadores[0]) && (
+            <Escena
+              tipo="tirachinas"
+              x={jugadores.get(perdedores[0]) ?? null}
+              y={jugadores.get(ganadores.includes(me.id) ? me.id : ganadores[0])!}
+              titulo={`🪃 ${ganadores.map(nombre).join(" y ")}, matagigantes`}
+              texto="Nadie daba un duro por ellos. Con el dedillo por el triángulo de la pala."
+            />
+          )}
+        </div>
+      )}
+
+      {revancha && p.estado === "confirmado" && juego && (
+        <Link href={revancha} className="boton secundario ancho" style={{ marginTop: 12 }}>
+          🔁 Revancha (mismas parejas)
+        </Link>
       )}
 
       {p.estado === "confirmado" && (

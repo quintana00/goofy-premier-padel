@@ -34,6 +34,18 @@ Es una web que se instala como app en el móvil (iPhone: Safari → Compartir �
   Reconciliación Guadalquivir. Salen con animación la primera vez.
 - **Torneo cruzado (americano)**: cruces automáticos y ranking individual.
 
+## Sacado del chat del grupo
+
+- **¿Hay pádel?** (`/hay-padel`): convocar partida en dos toques (día, hora, sitio de siempre). Los cuatro primeros
+  «dentro» juegan, el resto son reservas por orden, y al llenarse cae el sello de «PARTIDA DE NIVEL». Botón para pasarla
+  por WhatsApp y para apuntar el resultado con las parejas ya rellenas.
+- **Casas de apuestas** (de broma): cuotas y pronóstico según el ELO al elegir las parejas; después del partido dice si
+  fue lo esperado o un sorpresón.
+- **El Goofy Deportivo**: teletipo de titulares sensacionalistas en la portada.
+- **Revancha**: botón para repetir un partido con las mismas parejas.
+- **Escenas y medallas nuevas**: Por debajo de la red (roscos), Plácido Domingo («tus bolas no hacen daño»),
+  Matagigantes (el tirachinas) y «Acaba el primer set MUERTO».
+
 ## Personajes y escenas
 
 La personalidad de cada uno (apodos, frase, accesorio en las escenas: IQOS, gafas de natación, boli de notario…) está en
