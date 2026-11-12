@@ -6,7 +6,8 @@ import { Avatar } from "@/components/Avatar";
 import { Escena } from "@/components/Escena";
 import { TarjetaPartido } from "@/components/TarjetaPartido";
 import { cargarMundo, yo } from "@/lib/datos";
-import { SORPRESA, confirmadores, defensores, enActa, enPartido, enPlazo, estadisticas, ganador, reclamableHasta, textoSets, veredicto } from "@/lib/motor";
+import { apuestasVistas, describir, premio } from "@/lib/apuestas";
+import { SORPRESA, partidosAnulados, confirmadores, defensores, enActa, enPartido, enPlazo, estadisticas, ganador, reclamableHasta, textoSets, veredicto } from "@/lib/motor";
 import { Denunciar } from "./Denunciar";
 import { Reclamar } from "./Reclamar";
 
@@ -42,6 +43,7 @@ export default async function DetallePartido({ params, searchParams }: PageProps
   const perdedores: number[] = ganador(p.sets) === "a" ? (p.b ?? []) : p.a;
   const rosco = decidido && p.sets.some(([x, y]) => Math.min(x, y) === 0 && Math.max(x, y) === 6);
   const revancha = p.b ? `/partidos/nuevo?a1=${p.a[0]}&a2=${p.a[1]}&b1=${p.b[0]}&b2=${p.b[1]}` : null;
+  const apostado = apuestasVistas(m, partidosAnulados(m)).filter((a) => a.quedada.partidoId === p.id);
   const intentos = m.eventos.filter((e) => e.tipo === "intento_borrado" && e.partidoId === p.id);
   const gritos = m.megafonos.filter((v) => v.partidoId === p.id);
   const miGrito = gritos.find((v) => v.votante === me.id)?.acusado ?? 0;
@@ -168,6 +170,27 @@ export default async function DetallePartido({ params, searchParams }: PageProps
         <Link href={revancha} className="boton secundario ancho" style={{ marginTop: 12 }}>
           🔁 Revancha (mismas parejas)
         </Link>
+      )}
+
+      {apostado.length > 0 && (
+        <div className="seccion">
+          <h2 style={{ marginBottom: 10 }}>🎰 Apuestas de este partido</h2>
+          <div className="pila" style={{ gap: 6 }}>
+            {apostado.map((a) => (
+              <div key={a.id} className="fila entre pequeno">
+                <span className="fila" style={{ minWidth: 0 }}>
+                  <Avatar j={jugadores.get(a.jugadorId)!} tam={26} />
+                  <span>
+                    <b>{nombre(a.jugadorId)}</b>: {describir(a, (a.quedada.a ?? []).map(nombre).join(" y "), (a.quedada.b ?? []).map(nombre).join(" y "))}
+                  </span>
+                </span>
+                <b className={a.estado === "ganada" ? "ok" : a.estado === "perdida" ? "error" : "suave"} style={{ whiteSpace: "nowrap" }}>
+                  {a.estado === "ganada" ? `+${premio(a) - a.importe}` : a.estado === "perdida" ? `-${a.importe}` : a.estado === "nula" ? "devuelta" : "en el aire"}
+                </b>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {p.estado === "confirmado" && (

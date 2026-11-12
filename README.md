@@ -34,6 +34,17 @@ Es una web que se instala como app en el móvil (iPhone: Safari → Compartir �
   Reconciliación Guadalquivir. Salen con animación la primera vez.
 - **Torneo cruzado (americano)**: cruces automáticos y ranking individual.
 
+## Apuestas (monedas de mentira)
+
+- Todos empiezan con 1.000 monedas; máximo 100 por apuesta y una apuesta por mercado (`/apuestas`).
+- Se apuesta en las convocatorias de «¿Hay pádel?» con parejas fijadas, hasta la hora del partido.
+- `src/lib/apuestas.ts` (lógica pura, con pruebas): el modelo mezcla ranking, forma de los últimos 5 partidos, química de
+  la pareja y cara a cara; de ahí se calibra un modelo juego a juego y se enumeran todos los desarrollos posibles del
+  partido, de modo que todos los mercados (ganador, resultado en sets, sets por pareja, más/menos sets y juegos, roscos,
+  7-6, remontada) son coherentes entre sí. La casa se queda un 6 %.
+- La cuota se fija al apostar y se calcula en el servidor. Se cobra sola al apuntar el resultado desde la convocatoria;
+  si el partido se borra, se anula o queda inacabado, se devuelve.
+
 ## Sacado del chat del grupo
 
 - **¿Hay pádel?** (`/hay-padel`): convocar partida en dos toques (día, hora, sitio de siempre). Los cuatro primeros

@@ -139,6 +139,23 @@ create table if not exists quedada_apuntados (
   en timestamptz not null default now(),
   primary key (quedada_id, jugador_id)
 );
+alter table quedadas add column if not exists a1 int references jugadores(id);
+alter table quedadas add column if not exists a2 int references jugadores(id);
+alter table quedadas add column if not exists b1 int references jugadores(id);
+alter table quedadas add column if not exists b2 int references jugadores(id);
+alter table quedadas add column if not exists formato text not null default 'mejor3';
+alter table quedadas add column if not exists partido_id int references partidos(id) on delete set null;
+create table if not exists apuestas (
+  id serial primary key,
+  quedada_id int not null references quedadas(id) on delete cascade,
+  jugador_id int not null references jugadores(id),
+  mercado text not null,
+  seleccion text not null,
+  importe int not null check (importe > 0),
+  cuota numeric(6,2) not null,
+  creado timestamptz not null default now(),
+  unique (quedada_id, jugador_id, mercado)
+);
 -- Lo acordado en el grupo: la Temporada 1 oficial cuenta "a partir de esta semana" (lunes 26/10/2026).
 update temporadas set inicio = date '2026-10-26' where inicio = date '2000-01-01';
 -- Primera temporada: desde el lunes de la semana en que se acordó.

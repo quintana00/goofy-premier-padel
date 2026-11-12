@@ -1,5 +1,6 @@
 // Todo el cálculo (ELO, piques, medallas, deudas) es puro: recibe los datos y devuelve números.
 // Así se puede probar sin base de datos y recalcular cualquier temporada al vuelo.
+import { apuestasVistas, carteras } from "./apuestas";
 import type { Americano, Denuncia, Formato, Marcador, Mundo, Partido, PistaAmericano, Veredicto } from "./tipos";
 
 export const ELO_INICIAL = 1000;
@@ -486,6 +487,13 @@ export function medallas(m: Mundo, est: Estadisticas): Medalla[] {
     }
   }
 
+  // Casa de apuestas: el que más monedas tiene y los que han pedido rescate.
+  const bolsas = carteras(m, apuestasVistas(m, partidosAnulados(m)));
+  const tiburon = bolsas.find((c) => c.ganadas + c.perdidas >= 2 && c.beneficio > 0);
+  if (tiburon) add("tiburon", "🦈", "Tiburón de las apuestas", `+${tiburon.beneficio} monedas ganadas apostando`, tiburon.id);
+  for (const c of bolsas)
+    if (c.rescates > 0) add("arruinado", "💀", "Arruinado", `Rescatado ${c.rescates} ${c.rescates > 1 ? "veces" : "vez"} por el Banco de la Tropa`, c.id);
+
   // Del chat: «con el dedillo por el triángulo de la pala… para volear hace como un tirachinas».
   const matagigantes = maximo("sorpresas", 1);
   if (matagigantes)
@@ -699,6 +707,9 @@ export function muroDeLaVerguenza(m: Mundo): Verguenza[] {
     const p = porId.get(pid);
     if (p) out.push({ fecha: p.fecha, emoji: "📣", jugadorId: acusado, texto: `le gritó a su pareja (${n} testigos)`, partidoId: pid });
   }
+  for (const e of m.eventos)
+    if (e.tipo === "rescate")
+      out.push({ fecha: e.creado.slice(0, 10), emoji: "💀", jugadorId: e.jugadorId, texto: "se arruinó apostando y pidió rescate al Banco de la Tropa" });
   for (const p of m.partidos) {
     if (p.impuestaPor && p.estado === "confirmado")
       out.push({ fecha: p.fecha, emoji: "🙄", jugadorId: p.impuestaPor, texto: "dijo que la pareja se la impusieron", partidoId: p.id });

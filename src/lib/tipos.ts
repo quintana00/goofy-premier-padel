@@ -72,7 +72,7 @@ export type Gasto = {
 
 export type Temporada = { id: number; nombre: string; inicio: string; fin: string | null };
 
-export type Evento = { id: number; tipo: "intento_borrado"; jugadorId: number; partidoId: number | null; creado: string };
+export type Evento = { id: number; tipo: "intento_borrado" | "rescate"; jugadorId: number; partidoId: number | null; creado: string };
 
 export type Megafono = { partidoId: number; votante: number; acusado: number };
 
@@ -93,6 +93,22 @@ export type Quedada = {
   nota: string;
   creadoPor: number;
   apuntados: { jugadorId: number; dentro: boolean; en: string }[];
+  // Parejas fijadas: a partir de ahí se puede apostar. partidoId = el resultado que la resolvió.
+  a: [number, number] | null;
+  b: [number, number] | null;
+  formato: Formato;
+  partidoId: number | null;
+};
+
+export type Apuesta = {
+  id: number;
+  quedadaId: number;
+  jugadorId: number;
+  mercado: string; // p. ej. "ganador", "sets", "juegos:20.5"
+  seleccion: string;
+  importe: number;
+  cuota: number; // la del momento de apostar
+  creado: string;
 };
 
 export type Mundo = {
@@ -104,6 +120,8 @@ export type Mundo = {
   temporadas: Temporada[];
   eventos: Evento[];
   megafonos: Megafono[];
-  quedadas: Quedada[];
+  quedadas: Quedada[]; // las de ayer en adelante
+  quedadasConApuestas: Quedada[]; // todas las que tienen apuestas, también las antiguas
+  apuestas: Apuesta[];
   hoy: string;
 };

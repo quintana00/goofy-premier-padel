@@ -7,7 +7,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { cargarMundo, hoyMadrid, temporadaActual, yo } from "@/lib/datos";
-import { PUESTOS, confirmadores, defensores, enPartido, enPlazo, ganador, generarAmericano, repartir, setsValidos } from "@/lib/motor";
+import { APUESTA_MAX, APUESTA_MIN, RESCATE, abierta, apuestasVistas, carteras, mercados, modeloPartido } from "@/lib/apuestas";
+import { PUESTOS, estadisticas, partidosAnulados, confirmadores, defensores, enPartido, enPlazo, ganador, generarAmericano, repartir, setsValidos } from "@/lib/motor";
 import { COOKIE_GRUPO, COOKIE_SESION, UN_ANO, codigoGrupo, valorGrupo, valorSesion } from "@/lib/sesion";
 import type { Formato, Marcador } from "@/lib/tipos";
 
@@ -190,6 +191,7 @@ export async function nuevoPartido(_: Estado, fd: FormData): Promise<Estado> {
         bExterna: z.string().trim().max(40).optional().default(""),
         sets: z.string(),
         torneoId: IdOpcional,
+        quedadaId: IdOpcional,
         formato: z.enum(["1set", "mejor3", "inacabado"]).default("mejor3"),
         aDerecha: IdOpcional,
         bDerecha: IdOpcional,
@@ -228,6 +230,13 @@ export async function nuevoPartido(_: Estado, fd: FormData): Promise<Estado> {
               ${me.id}, ${datos.torneoId}, ${datos.formato}, ${datos.aDerecha}, ${externa ? null : datos.bDerecha},
               ${impuestaPor})
       returning id`;
+    // Si viene de una convocatoria con apuestas, este resultado las resuelve (si son esas mismas parejas).
+    if (datos.quedadaId && p.b) {
+      const q = [...m.quedadas, ...m.quedadasConApuestas].find((x) => x.id === datos.quedadaId);
+      const mismos = (x: number[] | null, y: number[]) => x !== null && x.every((j) => y.includes(j));
+      const cuadra = q && !q.partidoId && ((mismos(q.a, p.a) && mismos(q.b, p.b)) || (mismos(q.a, p.b) && mismos(q.b, p.a)));
+      if (cuadra) await sql`update quedadas set partido_id = ${id} where id = ${q.id} and partido_id is null`;
+    }
   } catch (e) {
     return fallo(e);
   }
@@ -563,7 +572,98 @@ export async function responderQuedada(fd: FormData) {
     await sql`insert into quedada_apuntados (quedada_id, jugador_id, dentro) values (${id}, ${me.id}, ${r === "dentro"})
               on conflict (quedada_id, jugador_id) do update set dentro = excluded.dentro,
                 en = case when quedada_apuntados.dentro = excluded.dentro then quedada_apuntados.en else now() end`;
+  // Si con el cambio ya no juegan los cuatro de las parejas fijadas, se deshacen las parejas y se devuelven las apuestas.
+  const [q] = await sql`select a1, a2, b1, b2, partido_id from quedadas where id = ${id}`;
+  if (q?.a1 && !q.partido_id) {
+    const titulares = (await sql`select jugador_id from quedada_apuntados where quedada_id = ${id} and dentro order by en limit 4`).map((x) => x.jugador_id);
+    if (![q.a1, q.a2, q.b1, q.b2].every((j) => titulares.includes(j))) {
+      await sql`delete from apuestas where quedada_id = ${id}`;
+      await sql`update quedadas set a1 = null, a2 = null, b1 = null, b2 = null where id = ${id}`;
+    }
+  }
   refrescar();
+}
+
+// ---------- Apuestas ----------
+
+// Uno de los cuatro que juegan (o quien convocó) fija las parejas: se abren los mercados.
+export async function fijarParejas(_: Estado, fd: FormData): Promise<Estado> {
+  try {
+    const me = await yo();
+    const id = z.coerce.number().int().parse(fd.get("id"));
+    const companero = z.coerce.number().int().parse(fd.get("companero"));
+    const formato = z.enum(["mejor3", "1set"]).parse(fd.get("formato") ?? "mejor3");
+    const m = await cargarMundo();
+    const q = m.quedadas.find((x) => x.id === id);
+    if (!q) return { error: "Esa convocatoria ya no existe" };
+    if (q.partidoId) return { error: "Ese partido ya tiene resultado" };
+    const titulares = q.apuntados.filter((x) => x.dentro).slice(0, 4).map((x) => x.jugadorId);
+    if (titulares.length < 4) return { error: "Faltan jugadores" };
+    if (!titulares.includes(me.id) && q.creadoPor !== me.id) return { error: "Las parejas las fijan los que juegan" };
+    const primero = z.coerce.number().int().parse(fd.get("primero") ?? titulares[0]);
+    if (!titulares.includes(primero) || !titulares.includes(companero) || primero === companero) return { error: "Pareja no válida" };
+    if (m.apuestas.some((x) => x.quedadaId === id)) return { error: "Ya hay apuestas: las parejas no se tocan" };
+    const resto = titulares.filter((j) => j !== primero && j !== companero);
+    const sql = await db();
+    await sql`update quedadas set a1 = ${primero}, a2 = ${companero}, b1 = ${resto[0]}, b2 = ${resto[1]}, formato = ${formato} where id = ${id}`;
+  } catch (e) {
+    return fallo(e);
+  }
+  refrescar();
+  return { ok: "Parejas fijadas. ¡Se abren las apuestas! 🎰" };
+}
+
+export async function apostar(_: Estado, fd: FormData): Promise<Estado> {
+  try {
+    const me = await yo();
+    const id = z.coerce.number().int().parse(fd.get("quedada"));
+    const mercado = z.string().max(30).parse(fd.get("mercado"));
+    const seleccion = z.string().max(10).parse(fd.get("seleccion"));
+    const importe = z.coerce.number({ message: "Importe no válido" }).int("Monedas enteras").parse(fd.get("importe"));
+    if (importe < APUESTA_MIN) return { error: `La apuesta mínima son ${APUESTA_MIN} monedas` };
+    if (importe > APUESTA_MAX) return { error: `El máximo por apuesta son ${APUESTA_MAX} monedas` };
+    const m = await cargarMundo();
+    const q = m.quedadas.find((x) => x.id === id);
+    if (!q || !q.a || !q.b || !abierta(q)) return { error: "Las apuestas de este partido están cerradas" };
+    // Los que juegan solo pueden apostar a que ganan ellos: nada de dejarse perder.
+    const juego = [...q.a, ...q.b].includes(me.id);
+    const miLado = q.a.includes(me.id) ? "a" : "b";
+    if (juego && (mercado !== "ganador" || seleccion !== miLado))
+      return { error: "Juegas este partido: solo puedes apostar a que ganas tú" };
+    if (m.apuestas.some((x) => x.quedadaId === id && x.jugadorId === me.id && x.mercado === mercado))
+      return { error: "Ya has apostado en este mercado" };
+    const cartera = carteras(m, apuestasVistas(m, partidosAnulados(m))).find((c) => c.id === me.id);
+    if (!cartera || cartera.saldo < importe) return { error: `No te llega: tienes ${cartera?.saldo ?? 0} monedas` };
+    // La cuota se calcula aquí, no se acepta la que mande el móvil.
+    const modelo = modeloPartido(estadisticas(m), q.a, q.b);
+    const opcion = mercados(modelo.pA, q.formato)
+      .find((x) => x.clave === mercado)
+      ?.opciones.find((o) => o.sel === seleccion);
+    if (!opcion) return { error: "Las cuotas han cambiado. Vuelve a mirar el mercado" };
+    const sql = await db();
+    await sql`insert into apuestas (quedada_id, jugador_id, mercado, seleccion, importe, cuota)
+              values (${id}, ${me.id}, ${mercado}, ${seleccion}, ${importe}, ${opcion.cuota})`;
+    refrescar();
+    return { ok: `Apostadas ${importe} 🪙 a cuota ${opcion.cuota.toFixed(2)}. Si aciertas cobras ${Math.round(importe * opcion.cuota)}` };
+  } catch (e) {
+    return fallo(e);
+  }
+}
+
+// El Banco de la Tropa rescata al que se queda sin blanca (y queda apuntado para la posteridad).
+export async function pedirRescate(): Promise<Estado> {
+  try {
+    const me = await yo();
+    const m = await cargarMundo();
+    const cartera = carteras(m, apuestasVistas(m, partidosAnulados(m))).find((c) => c.id === me.id);
+    if (!cartera || cartera.saldo >= APUESTA_MIN || cartera.enJuego > 0) return { error: "Aún te quedan monedas (o apuestas vivas). No llores" };
+    const sql = await db();
+    await sql`insert into eventos (tipo, jugador_id) values ('rescate', ${me.id})`;
+  } catch (e) {
+    return fallo(e);
+  }
+  refrescar();
+  return { ok: `El Banco de la Tropa te da ${RESCATE} monedas. Que no se repita` };
 }
 
 export async function borrarQuedada(fd: FormData) {

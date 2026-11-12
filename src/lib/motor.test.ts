@@ -14,7 +14,7 @@ const partido = (a: [number, number], b: [number, number] | null, sets: [number,
 
 const mundo = (partidos: Partido[], extra: Partial<Mundo> = {}): Mundo => ({
   jugadores: [1, 2, 3, 4, 5].map((id) => ({ id, nombre: `J${id}`, avatarV: 0 })),
-  partidos, denuncias: [], torneos: [], gastos: [], temporadas: [{ id: 1, nombre: "T1", inicio: "2026-01-01", fin: null }], eventos: [], megafonos: [], quedadas: [],
+  partidos, denuncias: [], torneos: [], gastos: [], temporadas: [{ id: 1, nombre: "T1", inicio: "2026-01-01", fin: null }], eventos: [], megafonos: [], quedadas: [], quedadasConApuestas: [], apuestas: [],
   hoy: "2026-10-28", ...extra,
 });
 

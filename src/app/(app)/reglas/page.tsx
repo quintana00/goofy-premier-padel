@@ -39,8 +39,18 @@ const REGLAS: { t: string; d: React.ReactNode }[] = [
     d: "Después de un partido, los que jugaron pueden votar si alguien le gritó a su pareja. Con 2 votos al mismo jugador, medalla de Megáfono.",
   },
   {
-    t: "🎰 Casas de apuestas (de broma)",
-    d: "Antes de cada partido el ELO da un pronóstico y unas cuotas. Si gana la pareja a la que le daban menos de un 35 %, es un sorpresón: más puntos y posible medalla de Matagigantes. Aquí no se apuesta dinero: solo dignidad.",
+    t: "🎰 Apuestas (con monedas de mentira)",
+    d: (
+      <>
+        Todos empiezan con <b>1.000 monedas</b>. Se apuesta en las partidas convocadas en «¿Hay pádel?» cuando ya tienen las
+        parejas fijadas, hasta la hora del partido. Máximo <b>100 monedas por apuesta</b> y una apuesta por mercado. La cuota
+        se queda fijada en el momento de apostar. Las cuotas salen de un modelo que mezcla ranking, forma (últimos 5
+        partidos), química de la pareja y cara a cara, con un pequeño margen para la casa. Los que juegan solo pueden
+        apostar a su propia victoria. Se cobra sola al apuntar el resultado desde la convocatoria; si el partido se
+        borra, se anula o queda inacabado, se devuelve lo apostado. Si te arruinas, el Banco de la Tropa te rescata con
+        100 monedas… y queda apuntado. No es dinero real: solo dignidad.
+      </>
+    ),
   },
   {
     t: "🕸️ Por debajo de la red",

@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "./db";
 import { COOKIE_GRUPO, COOKIE_SESION, grupoValido, leerSesion } from "./sesion";
-import type { Gasto, Mundo, Partido, Torneo } from "./tipos";
+import type { Gasto, Mundo, Partido, Quedada, Torneo } from "./tipos";
 
 export function hoyMadrid() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid" }).format(new Date());
@@ -15,7 +15,7 @@ const iso = (d: Date | string | null) => (d == null ? null : typeof d === "strin
 
 export const cargarMundo = cache(async (): Promise<Mundo> => {
   const sql = await db();
-  const [jugadores, partidos, denuncias, votos, torneos, resultados, gastos, partes, temporadas, eventos, megafonos, quedadas, apuntados] = await Promise.all([
+  const [jugadores, partidos, denuncias, votos, torneos, resultados, gastos, partes, temporadas, eventos, megafonos, quedadasBd, apuntados, apuestas] = await Promise.all([
     sql`select id, nombre, avatar_v from jugadores order by nombre`,
     sql`select *, fecha::text as fecha_t from partidos where estado <> 'rechazado'`,
     sql`select * from denuncias`,
@@ -27,9 +27,31 @@ export const cargarMundo = cache(async (): Promise<Mundo> => {
     sql`select *, inicio::text as inicio_t, fin::text as fin_t from temporadas order by inicio, id`,
     sql`select * from eventos order by id`,
     sql`select * from megafonos`,
-    sql`select *, fecha::text as fecha_t from quedadas where fecha >= (now() at time zone 'Europe/Madrid')::date - 1 order by fecha, hora, id`,
+    sql`select *, fecha::text as fecha_t, fecha >= (now() at time zone 'Europe/Madrid')::date - 1 as reciente from quedadas
+        where fecha >= (now() at time zone 'Europe/Madrid')::date - 1 or id in (select quedada_id from apuestas)
+        order by fecha, hora, id`,
     sql`select * from quedada_apuntados order by en`,
+    sql`select * from apuestas order by id`,
   ]);
+
+  const recientes = new Set<number>(quedadasBd.filter((q) => q.reciente).map((q) => q.id));
+  const todasQuedadas = quedadasBd.map(
+    (q): Quedada => ({
+      id: q.id,
+      fecha: q.fecha_t,
+      hora: q.hora,
+      sitio: q.sitio,
+      nota: q.nota,
+      creadoPor: q.creado_por,
+      apuntados: apuntados
+        .filter((x) => x.quedada_id === q.id)
+        .map((x) => ({ jugadorId: x.jugador_id, dentro: x.dentro, en: iso(x.en)! })),
+      a: q.a1 ? [q.a1, q.a2] : null,
+      b: q.b1 ? [q.b1, q.b2] : null,
+      formato: q.formato,
+      partidoId: q.partido_id,
+    }),
+  );
 
   return {
     hoy: hoyMadrid(),
@@ -110,16 +132,17 @@ export const cargarMundo = cache(async (): Promise<Mundo> => {
       partidoId: e.partido_id,
       creado: iso(e.creado)!,
     })),
-    quedadas: quedadas.map((q) => ({
-      id: q.id,
-      fecha: q.fecha_t,
-      hora: q.hora,
-      sitio: q.sitio,
-      nota: q.nota,
-      creadoPor: q.creado_por,
-      apuntados: apuntados
-        .filter((a) => a.quedada_id === q.id)
-        .map((a) => ({ jugadorId: a.jugador_id, dentro: a.dentro, en: iso(a.en)! })),
+    quedadas: todasQuedadas.filter((q) => recientes.has(q.id)),
+    quedadasConApuestas: todasQuedadas.filter((q) => apuestas.some((a) => a.quedada_id === q.id)),
+    apuestas: apuestas.map((a) => ({
+      id: a.id,
+      quedadaId: a.quedada_id,
+      jugadorId: a.jugador_id,
+      mercado: a.mercado,
+      seleccion: a.seleccion,
+      importe: a.importe,
+      cuota: Number(a.cuota),
+      creado: iso(a.creado)!,
     })),
     megafonos: megafonos.map((v) => ({ partidoId: v.partido_id, votante: v.votante, acusado: v.acusado })),
   };

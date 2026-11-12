@@ -76,6 +76,8 @@ export function FormPartido({
   torneoInicial,
   inicial,
   elos,
+  quedada,
+  formatoInicial,
 }: {
   jugadores: Jugador[];
   yoId: number;
@@ -84,6 +86,8 @@ export function FormPartido({
   torneoInicial: number | null;
   inicial?: { a: number[]; b: number[] };
   elos: Record<number, number>;
+  quedada: number | null;
+  formatoInicial: Formato;
 }) {
   const [estado, accion, enviando] = useActionState(nuevoPartido, null);
   const [a, setA] = useState<number[]>(inicial?.a ?? [yoId]);
@@ -91,7 +95,7 @@ export function FormPartido({
   const [torneo, setTorneo] = useState<number | null>(torneoInicial);
   const [fuera, setFuera] = useState(false);
   const [sets, setSets] = useState<string[][]>([["", ""], ["", ""], ["", ""]]);
-  const [formato, setFormato] = useState<Formato>("mejor3");
+  const [formato, setFormato] = useState<Formato>(formatoInicial);
   const [derechaA, setDerechaA] = useState<number | null>(null);
   const [derechaB, setDerechaB] = useState<number | null>(null);
   const [impuesta, setImpuesta] = useState(false);
@@ -109,12 +113,18 @@ export function FormPartido({
 
   return (
     <form action={accion} className="pila" style={{ gap: 18 }}>
+      {quedada && (
+        <div className="tarjeta cuotas pequeno">
+          🎰 Este resultado resuelve las apuestas del partido. Apúntalo con las mismas parejas y se cobran solas.
+        </div>
+      )}
       <input type="hidden" name="a1" value={a[0] ?? ""} />
       <input type="hidden" name="a2" value={a[1] ?? ""} />
       <input type="hidden" name="b1" value={fuera ? "" : (b[0] ?? "")} />
       <input type="hidden" name="b2" value={fuera ? "" : (b[1] ?? "")} />
       <input type="hidden" name="sets" value={JSON.stringify(marcador)} />
       <input type="hidden" name="formato" value={formato} />
+      {quedada && <input type="hidden" name="quedadaId" value={quedada} />}
       <input type="hidden" name="aDerecha" value={a.includes(derechaA ?? 0) ? (derechaA ?? "") : ""} />
       <input type="hidden" name="bDerecha" value={!fuera && b.includes(derechaB ?? 0) ? (derechaB ?? "") : ""} />
       {impuesta && juegoYo && <input type="hidden" name="impuesta" value="1" />}

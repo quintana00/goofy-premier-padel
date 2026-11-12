@@ -35,7 +35,7 @@ export default async function HayPadel() {
           </div>
         )}
         {proximas.map((q) => (
-          <TarjetaQuedada key={q.id} q={q} jugadores={jugadores} yoId={me.id} hoy={m.hoy} url={url} />
+          <TarjetaQuedada key={q.id} q={q} jugadores={jugadores} yoId={me.id} hoy={m.hoy} url={url} apuestas={m.apuestas.filter((a) => a.quedadaId === q.id).length} />
         ))}
         <FormQuedada hoy={m.hoy} manana={sumarDias(m.hoy, 1)} />
         {pasadas.length > 0 && (
@@ -43,7 +43,7 @@ export default async function HayPadel() {
             <h2 style={{ marginBottom: 12 }}>Ayer</h2>
             <div className="pila">
               {pasadas.map((q) => (
-                <TarjetaQuedada key={q.id} q={q} jugadores={jugadores} yoId={me.id} hoy={m.hoy} url={url} />
+                <TarjetaQuedada key={q.id} q={q} jugadores={jugadores} yoId={me.id} hoy={m.hoy} url={url} apuestas={m.apuestas.filter((a) => a.quedadaId === q.id).length} />
               ))}
             </div>
           </div>

@@ -12,6 +12,7 @@ export default async function NuevoPartido({ searchParams }: PageProps<"/partido
     claves.map((k) => Number(q[k])).filter((id) => m.jugadores.some((j) => j.id === id));
   const a = ids(["a1", "a2"]);
   const b = ids(["b1", "b2"]);
+  const quedada = m.quedadas.find((x) => String(x.id) === q.quedada && !x.partidoId);
   const t = alcance(m, undefined);
   const elos = Object.fromEntries([...estadisticas(m, t.desde, t.hasta).fichas].map(([id, f]) => [id, Math.round(f.elo)]));
   return (
@@ -27,6 +28,8 @@ export default async function NuevoPartido({ searchParams }: PageProps<"/partido
         torneoInicial={inicial}
         inicial={a.length === 2 ? { a, b: b.length === 2 ? b : [] } : undefined}
         elos={elos}
+        quedada={quedada?.id ?? null}
+        formatoInicial={quedada?.formato === "1set" ? "1set" : "mejor3"}
       />
     </>
   );

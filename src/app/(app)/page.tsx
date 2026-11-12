@@ -2,10 +2,10 @@ import Link from "next/link";
 import { Alcance } from "@/components/Alcance";
 import { RankingAnimado } from "@/components/Animaciones";
 import { Avatar } from "@/components/Avatar";
-import { Marca } from "@/components/Marca";
 import { alcance, cargarMundo, yo } from "@/lib/datos";
 import { confirmadores, defensores, deudas, diasEntre, enPlazo, euros, estadisticas, textoSets, titulares, type Ficha } from "@/lib/motor";
 import { Teletipo } from "@/components/Teletipo";
+import { abierta } from "@/lib/apuestas";
 
 function Racha({ f }: { f: Ficha }) {
   if (f.racha >= 3) return <span className="chapa verde">🦚 {f.racha} seguidas</span>;
@@ -33,19 +33,15 @@ export default async function Ranking({ searchParams }: PageProps<"/">) {
   const temporada = m.temporadas.find((t) => String(t.id) === a.ver);
   const terminada = temporada && (temporada.fin ? temporada.fin < m.hoy : Boolean(a.hasta));
   const fechaCorta = (f: string) => new Date(`${f}T12:00:00`).toLocaleDateString("es-ES", { day: "numeric", month: "short" });
-  const proxima = m.quedadas.find((q) => q.fecha >= m.hoy);
+  const proxima = m.quedadas.find((q) => q.fecha >= m.hoy && !q.partidoId);
   const dentroProxima = proxima?.apuntados.filter((x) => x.dentro).length ?? 0;
+  const apuestasAbiertas = m.quedadas.filter((q) => abierta(q));
+  const misApuestas = apuestasAbiertas.length ? m.apuestas.filter((x) => x.quedadaId === apuestasAbiertas[0].id && x.jugadorId === me.id).length : 0;
   const ultimoDelta = new Map<number, number>();
   for (const c of est.cambios) ultimoDelta.set(c.jugadorId, c.delta);
 
   return (
     <>
-      <div className="cabecera">
-        <Marca />
-        <Link href="/resumen" className="boton secundario mini">
-          📰 Resumen
-        </Link>
-      </div>
 
       <Teletipo titulares={titulares(m, est, nombreDe)} />
 
@@ -73,6 +69,20 @@ export default async function Ranking({ searchParams }: PageProps<"/">) {
           )}
           <span>→</span>
         </Link>
+        {apuestasAbiertas.length > 0 && (
+          <Link href="/apuestas" className="tarjeta fila entre cuotas">
+            <span>
+              <b>
+                🎰 Apuestas abiertas: {apuestasAbiertas[0].a!.map(nombreDe).join(" y ")} vs {apuestasAbiertas[0].b!.map(nombreDe).join(" y ")}
+              </b>
+              <br />
+              <span className="suave pequeno">
+                {misApuestas ? `Llevas ${misApuestas} apuesta${misApuestas > 1 ? "s" : ""}` : "Aún no has apostado"} · cierra a las {apuestasAbiertas[0].hora}
+              </span>
+            </span>
+            <span>→</span>
+          </Link>
+        )}
         {porResolver.length > 0 && (
           <Link href={`/partidos/${porResolver[0].id}`} className="tarjeta peligro fila entre">
             <span>
@@ -107,7 +117,12 @@ export default async function Ranking({ searchParams }: PageProps<"/">) {
         )}
       </div>
 
-      <h1 style={{ marginBottom: 12 }}>Ranking</h1>
+      <div className="cabecera">
+        <h1>Ranking</h1>
+        <Link href="/resumen" className="boton secundario mini">
+          📰 Resumen
+        </Link>
+      </div>
       <Alcance m={m} ver={a.ver} ruta="/" />
       {temporada && (
         <div className="fila entre envolver suave pequeno" style={{ marginTop: -6, marginBottom: 12 }}>
