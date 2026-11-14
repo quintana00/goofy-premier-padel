@@ -4,6 +4,7 @@ import { APUESTA_MAX, APUESTA_MIN, SALDO_INICIAL, abierta, apuestasVistas, carte
 import { cargarMundo, yo } from "@/lib/datos";
 import { estadisticas, partidosAnulados } from "@/lib/motor";
 import { Mercados, Rescate } from "./Mercados";
+import { PonerPartido } from "./PonerPartido";
 
 export const metadata = { title: "Apuestas · Goofy Premier Padel" };
 
@@ -19,6 +20,8 @@ export default async function Apuestas() {
   const tabla = carteras(m, vistas);
   const yoCartera = tabla.find((c) => c.id === me.id)!;
   const abiertas = m.quedadas.filter((q) => abierta(q));
+  // Cerradas las apuestas y aún sin resultado: se están jugando (o esperan a que alguien apunte cómo acabó).
+  const enJuego = m.quedadas.filter((q) => q.a && q.b && !q.partidoId && !abierta(q));
   const sinParejas = m.quedadas.filter((q) => q.fecha >= m.hoy && !q.a && !q.partidoId);
   const mias = vistas.filter((a) => a.jugadorId === me.id).sort((x, y) => y.id - x.id);
   const dia = (f: string) => (f === m.hoy ? "Hoy" : new Date(`${f}T12:00:00`).toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" }));
@@ -62,6 +65,39 @@ export default async function Apuestas() {
         </div>
       )}
 
+      <div className="seccion" style={{ marginTop: 14 }}>
+        <PonerPartido jugadores={m.jugadores} abierto={false} />
+      </div>
+
+      {enJuego.length > 0 && (
+        <div className="seccion">
+          <h2 style={{ marginBottom: 12 }}>En juego</h2>
+          <div className="pila" style={{ gap: 8 }}>
+            {enJuego.map((q) => {
+              const n = m.apuestas.filter((x) => x.quedadaId === q.id);
+              return (
+                <div key={q.id} className="tarjeta pila" style={{ gap: 10 }}>
+                  <div className="fila entre suave pequeno">
+                    <span>
+                      <span className="en-directo" /> {dia(q.fecha)} · {q.hora} · {q.sitio}
+                    </span>
+                    <span>
+                      {n.length} apuesta{n.length === 1 ? "" : "s"} · {n.reduce((t, x) => t + x.importe, 0)} 🪙
+                    </span>
+                  </div>
+                  <span>
+                    <b style={{ color: "var(--bola)" }}>{pareja(q.a!)}</b> <span className="suave">vs</span> <b style={{ color: "var(--rosa)" }}>{pareja(q.b!)}</b>
+                  </span>
+                  <Link href={`/partidos/nuevo?a1=${q.a![0]}&a2=${q.a![1]}&b1=${q.b![0]}&b2=${q.b![1]}&quedada=${q.id}`} className="boton mini">
+                    🎾 Ha terminado: apuntar resultado
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="seccion">
         <h2 style={{ marginBottom: 12 }}>Partidos abiertos</h2>
         {abiertas.length === 0 && (
@@ -75,7 +111,7 @@ export default async function Apuestas() {
                 los mercados.
               </>
             ) : (
-              <>Convocad una partida y fijad las parejas para abrir mercados.</>
+              <>Pon tú un partido aquí arriba, o convocad una partida en «¿Hay pádel?».</>
             )}
             <br />
             <Link href="/hay-padel" className="boton mini" style={{ marginTop: 12 }}>

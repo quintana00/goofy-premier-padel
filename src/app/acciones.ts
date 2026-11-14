@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { cargarMundo, hoyMadrid, temporadaActual, yo } from "@/lib/datos";
-import { APUESTA_MAX, APUESTA_MIN, RESCATE, abierta, apuestasVistas, carteras, mercados, modeloPartido } from "@/lib/apuestas";
+import { APUESTA_MAX, APUESTA_MIN, RESCATE, abierta, ahoraMadrid, apuestasVistas, carteras, mercados, modeloPartido } from "@/lib/apuestas";
 import { PUESTOS, estadisticas, partidosAnulados, confirmadores, defensores, enPartido, enPlazo, ganador, generarAmericano, repartir, setsValidos } from "@/lib/motor";
 import { COOKIE_GRUPO, COOKIE_SESION, UN_ANO, codigoGrupo, valorGrupo, valorSesion } from "@/lib/sesion";
 import type { Formato, Marcador } from "@/lib/tipos";
@@ -585,6 +585,38 @@ export async function responderQuedada(fd: FormData) {
 }
 
 // ---------- Apuestas ----------
+
+// Cualquiera (juegue o no) pone un partido que está a punto de empezar: las cuatro personas ya colocadas en sus
+// parejas y las apuestas abiertas hasta que empiece.
+export async function anunciarPartido(_: Estado, fd: FormData): Promise<Estado> {
+  try {
+    const me = await yo();
+    const ids = ["a1", "a2", "b1", "b2"].map((k) => z.coerce.number({ message: "Faltan jugadores" }).int().parse(fd.get(k)));
+    const sitio = z.string().trim().min(2, "¿Dónde juegan?").max(40).parse(fd.get("sitio"));
+    const minutos = z.coerce.number().int().min(5).max(240).parse(fd.get("minutos"));
+    const formato = z.enum(["mejor3", "1set"]).parse(fd.get("formato") ?? "mejor3");
+    if (new Set(ids).size !== 4) return { error: "Hay un jugador repetido" };
+    const m = await cargarMundo();
+    if (!ids.every((id) => m.jugadores.some((j) => j.id === id))) return { error: "Jugador desconocido" };
+    // No puede haber dos partidos abiertos con el mismo jugador a la vez.
+    const ocupado = m.quedadas.find((q) => abierta(q) && [...q.a!, ...q.b!].some((j) => ids.includes(j)));
+    if (ocupado) return { error: "Alguno ya está en otro partido con las apuestas abiertas" };
+    const [fecha, hora] = ahoraMadrid(new Date(Date.now() + minutos * 60_000)).split(" ");
+    const sql = await db();
+    await sql.begin(async (tx) => {
+      const [{ id }] = await tx`
+        insert into quedadas (fecha, hora, sitio, nota, creado_por, a1, a2, b1, b2, formato)
+        values (${fecha}, ${hora}, ${sitio}, '', ${me.id}, ${ids[0]}, ${ids[1]}, ${ids[2]}, ${ids[3]}, ${formato}) returning id`;
+      // Los cuatro quedan "dentro", en este orden, como si se hubieran apuntado ellos.
+      for (const [i, j] of ids.entries())
+        await tx`insert into quedada_apuntados (quedada_id, jugador_id, dentro, en) values (${id}, ${j}, true, now() + ${i} * interval '1 millisecond')`;
+    });
+  } catch (e) {
+    return fallo(e);
+  }
+  refrescar();
+  return { ok: "¡Partido puesto! Apuestas abiertas hasta que empiece 🎰" };
+}
 
 // Uno de los cuatro que juegan (o quien convocó) fija las parejas: se abren los mercados.
 export async function fijarParejas(_: Estado, fd: FormData): Promise<Estado> {

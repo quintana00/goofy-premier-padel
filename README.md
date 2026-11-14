@@ -38,6 +38,9 @@ Es una web que se instala como app en el móvil (iPhone: Safari → Compartir �
 
 - Todos empiezan con 1.000 monedas; máximo 100 por apuesta y una apuesta por mercado (`/apuestas`).
 - Se apuesta en las convocatorias de «¿Hay pádel?» con parejas fijadas, hasta la hora del partido.
+- **Poner un partido**: cualquiera, juegue o no, puede poner desde `/apuestas` un partido que va a empezar (parejas,
+  sitio y minutos que faltan). Las apuestas se abren al momento y, al acabar, cualquiera apunta el resultado desde
+  «En juego».
 - `src/lib/apuestas.ts` (lógica pura, con pruebas): el modelo mezcla ranking, forma de los últimos 5 partidos, química de
   la pareja y cara a cara; de ahí se calibra un modelo juego a juego y se enumeran todos los desarrollos posibles del
   partido, de modo que todos los mercados (ganador, resultado en sets, sets por pareja, más/menos sets y juegos, roscos,

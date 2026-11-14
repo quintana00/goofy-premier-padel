@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { nuevaQuedada } from "@/app/acciones";
 
 // Los sitios de siempre, según el grupo.
-const SITIOS = ["One Pádel", "Bamvolea", "Family Sport", "Sportcity", "Domotik Torrent"];
+const SITIOS = ["One Pádel", "K7", "Bamvolea", "Family Sport", "Sportcity", "Domotik Torrent"];
 const HORAS = ["19:00", "20:00", "20:30", "21:00"];
 
 export function FormQuedada({ hoy, manana }: { hoy: string; manana: string }) {

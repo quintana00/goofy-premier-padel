@@ -43,7 +43,8 @@ const REGLAS: { t: string; d: React.ReactNode }[] = [
     d: (
       <>
         Todos empiezan con <b>1.000 monedas</b>. Se apuesta en las partidas convocadas en «¿Hay pádel?» cuando ya tienen las
-        parejas fijadas, hasta la hora del partido. Máximo <b>100 monedas por apuesta</b> y una apuesta por mercado. La cuota
+        parejas fijadas, o en un partido que cualquiera (juegue o no) ponga desde Apuestas cuando van a empezar. Se puede
+        apostar hasta la hora del partido. Máximo <b>100 monedas por apuesta</b> y una apuesta por mercado. La cuota
         se queda fijada en el momento de apostar. Las cuotas salen de un modelo que mezcla ranking, forma (últimos 5
         partidos), química de la pareja y cara a cara, con un pequeño margen para la casa. Los que juegan solo pueden
         apostar a su propia victoria. Se cobra sola al apuntar el resultado desde la convocatoria; si el partido se
